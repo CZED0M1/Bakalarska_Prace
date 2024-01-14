@@ -2,7 +2,7 @@ package com.example.bakalar
 
 import android.graphics.Color
 import android.os.Bundle
-import android.preference.PreferenceManager
+import androidx.preference.PreferenceManager
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
@@ -33,6 +33,7 @@ class MapsActivity : AppCompatActivity() {
 
         //load/initialize the osmdroid configuration, this can be done
         // This won't work unless you have imported this: org.osmdroid.config.Configuration.*
+        //TODO tady byl problém, že je zastaralé https://stackoverflow.com/questions/56833657/preferencemanager-getdefaultsharedpreferences-deprecated-in-android-q
         getInstance().load(this, PreferenceManager.getDefaultSharedPreferences(this))
         //setting this before the layout is inflated is a good idea
         //it 'should' ensure that the map has a writable location for the map cache, even without permissions
@@ -83,9 +84,9 @@ class MapsActivity : AppCompatActivity() {
         map.overlays.add(rotationGestureOverlay)
 
 
-        var marker = Marker(map)
+        val marker = Marker(map)
         marker.position = GeoPoint(48.8583, 2.2944)
-        marker.icon = ContextCompat.getDrawable(this@MapsActivity, R.drawable.marker_default)
+        marker.icon = ContextCompat.getDrawable(this@MapsActivity, org.osmdroid.library.R.drawable.marker_default)
         marker.title = "ImportActivity Marker"
         marker.setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_CENTER)
         map.overlays.add(marker)
@@ -111,15 +112,15 @@ class MapsActivity : AppCompatActivity() {
 
 
 
-        val geoPoints = ArrayList<GeoPoint>();
+        val geoPoints = ArrayList<GeoPoint>()
 //add your points here
-        val polygon = Polygon();    //see note below
+        val polygon = Polygon()    //see note below
         geoPoints.add(GeoPoint(48.8583, 2.2944))
         geoPoints.add(GeoPoint(48.8583, 2.3944))
         geoPoints.add(GeoPoint(49.7583, 2.1944))
-        geoPoints.add(geoPoints.get(0));    //forces the loop to close(connect last point to first point)
+        geoPoints.add(geoPoints[0])   //forces the loop to close(connect last point to first point)
         polygon.fillPaint.color = Color.parseColor("#4EFF0000") //set fill color
-        polygon.setPoints(geoPoints);
+        polygon.points = geoPoints
         polygon.title = "A sample polygon"
 
 //polygons supports holes too, points should be in a counter-clockwise order

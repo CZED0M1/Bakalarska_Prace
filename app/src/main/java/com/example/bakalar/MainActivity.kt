@@ -1,6 +1,5 @@
 package com.example.bakalar
 
-import android.annotation.SuppressLint
 import android.app.Activity
 import android.content.Intent
 import android.net.Uri
@@ -38,7 +37,7 @@ class MainActivity : AppCompatActivity() {
     private fun openMap() {
         val openMap= findViewById<Button>(R.id.buttonMapa)
         openMap.setOnClickListener {
-            val intent : Intent = Intent(this,MapsActivity::class.java)
+            val intent = Intent(this,MapsActivity::class.java)
             startActivity(intent)
         }
     }
@@ -52,7 +51,7 @@ class MainActivity : AppCompatActivity() {
         requestFileLauncher.launch(intent)
     }
 
-    private fun handleSelectedFile(uri: android.net.Uri) {
+    private fun handleSelectedFile(uri: Uri) {
         val cursor = contentResolver.query(uri, null, null, null, null)
         cursor?.use {
             if (it.moveToFirst()) {
