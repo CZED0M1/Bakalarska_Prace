@@ -1,12 +1,15 @@
 package com.example.bakalar
 
+
 import android.graphics.Color
 import android.os.Bundle
-import androidx.preference.PreferenceManager
+import android.widget.Button
+import android.widget.ImageButton
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
+import androidx.preference.PreferenceManager
 import com.example.testosmroid.R
 import org.osmdroid.config.Configuration.getInstance
 import org.osmdroid.events.MapEventsReceiver
@@ -50,7 +53,15 @@ class MapsActivity : AppCompatActivity() {
 
         map = findViewById(R.id.mapView)
         map.setTileSource(TileSourceFactory.MAPNIK)
-
+        //TODO image:<a href="https://www.flaticon.com/free-icons/parking" title="parking icons">Parking icons created by Bartama Graphic - Flaticon</a>
+        val myButton : ImageButton = findViewById(R.id.myButton)
+        myButton.setOnClickListener {
+            Toast.makeText(
+                this@MapsActivity,
+                "Tlačítko bylo stisknuto",
+                Toast.LENGTH_SHORT
+            ).show()
+        }
 
         //TODO problém napsat do bc
         map.maxZoomLevel = 20.0
