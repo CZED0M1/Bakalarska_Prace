@@ -53,6 +53,7 @@ class MapsActivity : AppCompatActivity() {
 
         map = findViewById(R.id.mapView)
         map.setTileSource(TileSourceFactory.MAPNIK)
+        //TODO problém když nešel přidat obrázek a musel se měnit <LinearLayout na <RelativeLayout (překrytí)
         //TODO image:<a href="https://www.flaticon.com/free-icons/parking" title="parking icons">Parking icons created by Bartama Graphic - Flaticon</a>
         val myButton : ImageButton = findViewById(R.id.myButton)
         myButton.setOnClickListener {
