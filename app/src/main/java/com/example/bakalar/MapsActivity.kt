@@ -1,9 +1,18 @@
 package com.example.bakalar
 
 
+import android.Manifest
+import android.animation.AnimatorSet
+import android.animation.ObjectAnimator
+import android.app.AlertDialog
+import android.content.Intent
+import android.content.pm.PackageManager
 import android.graphics.Color
+import android.net.Uri
 import android.os.Bundle
-import android.widget.Button
+import android.provider.Settings
+import android.util.Log
+import android.view.View
 import android.widget.ImageButton
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
@@ -20,22 +29,34 @@ import org.osmdroid.views.overlay.MapEventsOverlay
 import org.osmdroid.views.overlay.Marker
 import org.osmdroid.views.overlay.Polygon
 import org.osmdroid.views.overlay.gestures.RotationGestureOverlay
-import org.osmdroid.views.overlay.gridlines.LatLonGridlineOverlay2
+import java.security.Permissions
 
 
 class MapsActivity : AppCompatActivity() {
-    private val REQUEST_PERMISSIONS_REQUEST_CODE = 1
-    private lateinit var map : MapView
+    //private val REQUEST_PERMISSIONS_REQUEST_CODE = 123
+    private lateinit var map: MapView
+    private var isParkClicked: Boolean = false
+    private lateinit var parkingButton: ImageButton
+    private lateinit var cancelButton: ImageButton
+    private lateinit var addButton: ImageButton
+    private lateinit var undoButton: ImageButton
+    private lateinit var rectangle: View
+    private var geoPoints = ArrayList<GeoPoint>()
+    private var markers = ArrayList<Marker>()
+    private val requiredPermissions = arrayOf(
+        Manifest.permission.ACCESS_FINE_LOCATION,
+        Manifest.permission.ACCESS_COARSE_LOCATION
+    )
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-
-
-
+        //requestPermissionsIfNecessary(requiredPermissions)TODO
 
         //handle permissions first, before map is created. not depicted here
 
         //load/initialize the osmdroid configuration, this can be done
         // This won't work unless you have imported this: org.osmdroid.config.Configuration.*
+        //TODO problém <uses-permission android:name="android.permission.INTERNET" /> stahuje mapu
         //TODO tady byl problém, že je zastaralé https://stackoverflow.com/questions/56833657/preferencemanager-getdefaultsharedpreferences-deprecated-in-android-q
         getInstance().load(this, PreferenceManager.getDefaultSharedPreferences(this))
         //setting this before the layout is inflated is a good idea
@@ -48,23 +69,69 @@ class MapsActivity : AppCompatActivity() {
         //inflate and create the map
 
 
-
         setContentView(R.layout.activity_maps)
+
+
+
 
         map = findViewById(R.id.mapView)
         map.setTileSource(TileSourceFactory.MAPNIK)
         //TODO problém když nešel přidat obrázek a musel se měnit <LinearLayout na <RelativeLayout (překrytí)
-        //TODO image:<a href="https://www.flaticon.com/free-icons/parking" title="parking icons">Parking icons created by Bartama Graphic - Flaticon</a>
-        val myButton : ImageButton = findViewById(R.id.myButton)
-        myButton.setOnClickListener {
-            Toast.makeText(
-                this@MapsActivity,
-                "Tlačítko bylo stisknuto",
-                Toast.LENGTH_SHORT
-            ).show()
+
+
+        parkingButton = findViewById(R.id.addParking)
+        //TODO <a href="https://www.flaticon.com/free-icons/parking" title="parking icons">Parking icons created by Bartama Graphic - Flaticon</a>
+        cancelButton = findViewById(R.id.cancel)
+        //TODO <a href="https://www.flaticon.com/free-icons/delete" title="delete icons">Delete icons created by Pixel perfect - Flaticon</a>
+        addButton = findViewById(R.id.approve)
+        //TODO <a href="https://www.flaticon.com/free-icons/yes" title="yes icons">Yes icons created by juicy_fish - Flaticon</a>
+        undoButton = findViewById(R.id.undo)
+        //TODO <a href="https://www.flaticon.com/free-icons/back" title="back icons">Back icons created by Roundicons - Flaticon</a>
+        rectangle = findViewById(R.id.rectangleView)
+
+        cancelButton.translationY = -600f
+        addButton.translationY = -600f
+        undoButton.translationY = -600f
+        rectangle.translationY = -600f
+
+
+
+
+        parkingButton.setOnClickListener {
+            startAnimation()
+            clearMapAndPoints()
+            isParkClicked = !isParkClicked
+            markersButtonClicked()
         }
 
-        //TODO problém napsat do bc
+        undoButton.setOnClickListener {
+            if (markers.size == 0) return@setOnClickListener
+            geoPoints.removeLast()
+            markers.removeLast()
+            map.overlays.removeLast()
+            map.invalidate()
+        }
+        addButton.setOnClickListener {
+            if (markers.size > 2) {
+                val polygon = Polygon()    //see note below
+                geoPoints.add(geoPoints[0])   //forces the loop to close(connect last point to first point)
+                polygon.fillPaint.color = Color.parseColor("#4EFF0000") //set fill color
+                polygon.points = geoPoints
+                map.overlays.add(polygon)
+                clearMapAndPoints()
+            } else {
+                Toast.makeText(
+                    applicationContext,
+                    "Jsou potřeba alespoň 3 body!",
+                    Toast.LENGTH_SHORT
+                ).show();
+            }
+        }
+        cancelButton.setOnClickListener {
+            clearMapAndPoints()
+        }
+
+        //TODO problém napsat do bc více map, opraveno
         map.maxZoomLevel = 20.0
         map.minZoomLevel = 4.0
         map.setScrollableAreaLimitLatitude(
@@ -78,70 +145,78 @@ class MapsActivity : AppCompatActivity() {
             MapView.getTileSystem().maxLongitude,
             0
         )
+        val mapController = map.controller
 
-        val mapController= map.controller
+
         mapController.setZoom(9.5)
         val startPoint = GeoPoint(48.8583, 2.2944)
+
+
         mapController.setCenter(startPoint)
-
-
-
-
-        val overlay = LatLonGridlineOverlay2()
-        map.overlays.add(overlay)
-
         val rotationGestureOverlay = RotationGestureOverlay(map)
         rotationGestureOverlay.isEnabled
         map.setMultiTouchControls(true)
         map.overlays.add(rotationGestureOverlay)
+    }
 
-
-        val marker = Marker(map)
-        marker.position = GeoPoint(48.8583, 2.2944)
-        marker.icon = ContextCompat.getDrawable(this@MapsActivity, org.osmdroid.library.R.drawable.marker_default)
-        marker.title = "ImportActivity Marker"
-        marker.setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_CENTER)
-        map.overlays.add(marker)
+    private fun clearMapAndPoints() {
+        geoPoints.clear()
+        for (marker in markers) {
+            map.overlays.remove(marker)
+        }
+        markers.clear()
         map.invalidate()
+    }
+
+    private fun startAnimation() {
+        val translationYValue = if (isParkClicked) -600f else 0f
+
+        val animator1 = ObjectAnimator.ofFloat(undoButton, "translationY", translationYValue)
+        val animator2 = ObjectAnimator.ofFloat(cancelButton, "translationY", translationYValue)
+        val animator3 = ObjectAnimator.ofFloat(addButton, "translationY", translationYValue)
+        val animator4 = ObjectAnimator.ofFloat(rectangle, "translationY", translationYValue)
+
+        val animatorSet = AnimatorSet()
+        animatorSet.playTogether(animator1, animator2, animator3, animator4)
+        animatorSet.duration = 1000
+
+        animatorSet.start()
 
 
-        val tapOverlay = MapEventsOverlay(object: MapEventsReceiver {
+    }
+
+
+    private fun markersButtonClicked() {
+        var marker: Marker
+        val tapOverlay = MapEventsOverlay(object : MapEventsReceiver {
             override fun singleTapConfirmedHelper(p: GeoPoint?): Boolean {
-                Toast.makeText(
-                    baseContext,"short"+
-                            p?.latitude.toString() + " - " + p?.longitude,
-                    Toast.LENGTH_LONG
-                ).show()
+                if (!isParkClicked) return false
+                if (p != null) {
+                    marker = Marker(map)
+                    marker.position = GeoPoint(p.latitude, p.longitude)
+                    geoPoints.add(GeoPoint(p.latitude, p.longitude))
+                    marker.icon = ContextCompat.getDrawable(
+                        this@MapsActivity,
+                        org.osmdroid.library.R.drawable.marker_default
+                    )
+                    marker.title = "Bod ${markers.size}"
+                    marker.setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_BOTTOM)
+                    markers.add(marker)
+                    map.overlays.add(marker)
+                    map.invalidate()
+
+                }
+
+
                 return true
             }
+
             override fun longPressHelper(p: GeoPoint?): Boolean {
                 return true
             }
         })
         map.overlays.add(tapOverlay)
 
-
-
-
-
-        val geoPoints = ArrayList<GeoPoint>()
-//add your points here
-        val polygon = Polygon()    //see note below
-        geoPoints.add(GeoPoint(48.8583, 2.2944))
-        geoPoints.add(GeoPoint(48.8583, 2.3944))
-        geoPoints.add(GeoPoint(49.7583, 2.1944))
-        geoPoints.add(geoPoints[0])   //forces the loop to close(connect last point to first point)
-        polygon.fillPaint.color = Color.parseColor("#4EFF0000") //set fill color
-        polygon.points = geoPoints
-        polygon.title = "A sample polygon"
-
-//polygons supports holes too, points should be in a counter-clockwise order
-        val holes = ArrayList<ArrayList<GeoPoint>>()
-// Note, you will have to create "moreGeoPoints" yourself.
-        // holes.add(moreGeoPoints)
-        polygon.setHoles(holes)
-
-        map.overlays.add(polygon)
 
     }
 
@@ -151,7 +226,7 @@ class MapsActivity : AppCompatActivity() {
         //if you make changes to the configuration, use
         //SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(this);
         //Configuration.getInstance().load(this, PreferenceManager.getDefaultSharedPreferences(this));
-        map.onResume() //needed for compass, my location overlays, v6.0.0 and up
+        //map.onResume() //needed for compass, my location overlays, v6.0.0 and up
     }
 
     override fun onPause() {
@@ -163,45 +238,84 @@ class MapsActivity : AppCompatActivity() {
         map.onPause()  //needed for compass, my location overlays, v6.0.0 and up
     }
 
+/*
+    private fun requestPermissionsIfNecessary(permissions: Array<String>) {
+        try {
+            val permissionsToRequest = ArrayList<String>()
 
-    override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
-        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
-        val permissionsToRequest = ArrayList<String>()
-        var i = 0
-        while (i < grantResults.size) {
-            permissionsToRequest.add(permissions[i])
-            i++
-        }
-        if (permissionsToRequest.size > 0) {
-            ActivityCompat.requestPermissions(
-                this,
-                permissionsToRequest.toTypedArray(),
-                REQUEST_PERMISSIONS_REQUEST_CODE)
+            for (permission in permissions) {
+                if (ContextCompat.checkSelfPermission(this, permission) != PackageManager.PERMISSION_GRANTED) {
+                    permissionsToRequest.add(permission)
+                }
+            }
+
+            if (permissionsToRequest.isNotEmpty()) {
+                showPermissionRequestDialog(permissionsToRequest.toTypedArray())
+            }
+        } catch (e: Exception) {
+            Log.e("MapsActivity", "Chyba při žádosti o oprávnění: ${e.message}")
         }
     }
 
-    /*
-    private fun requestPermissionsIfNecessary(permissions : Array<String>) {
-        val permissionsToRequest = ArrayList<String>()
-        permissions.forEach { permission ->
-            if (ContextCompat.checkSelfPermission(this, permission)
-                != PackageManager.PERMISSION_GRANTED) {
-                // Permission is not granted
-                permissionsToRequest.add(permission);
+    private fun showPermissionRequestDialog(permissions: Array<String>) {
+        try {
+            AlertDialog.Builder(this)
+                .setTitle("Oprávnění potřebná pro správnou funkci aplikace")
+                .setMessage("Aplikace vyžaduje některá oprávnění pro správnou funkci. Povolit oprávnění?")
+                .setPositiveButton("Ano") { _, _ ->
+                    try {
+                        ActivityCompat.requestPermissions(
+                            this,
+                            permissions,
+                            REQUEST_PERMISSIONS_REQUEST_CODE
+                        )
+                    } catch (e: Exception) {
+                        Log.e("MapsActivity", "Chyba při žádosti o oprávnění: ${e.message}")
+                    }
+                    closeDialog()
+                }
+                .setNegativeButton("Ne") { _, _ ->
+                    // Zde můžete zobrazit vysvětlující dialog nebo podniknout další akce
+                    finish()
+                }
+                .show()
+        } catch (e: Exception) {
+            Log.e("MapsActivity", "Chyba při zobrazení dialogu: ${e.message}")
+        }
+    }
+
+    private fun closeDialog() {
+        runOnUiThread {
+            // Zde uzavřete dialog
+            // např. dialog.dismiss() nebo finish()
+        }
+    }
+
+    override fun onRequestPermissionsResult(
+        requestCode: Int,
+        permissions: Array<out String>,
+        grantResults: IntArray
+    ) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+
+        if (requestCode == REQUEST_PERMISSIONS_REQUEST_CODE) {
+            var allPermissionsGranted = true
+
+            for (result in grantResults) {
+                if (result != PackageManager.PERMISSION_GRANTED) {
+                    allPermissionsGranted = false
+                    break
+                }
+            }
+
+            if (!allPermissionsGranted) {
+                // Alespoň jedno oprávnění nebylo schváleno, můžete zobrazit další vysvětlující dialog nebo podniknout další akce
+                finish()
             }
         }
-        if (permissionsToRequest.size > 0) {
-            ActivityCompat.requestPermissions(
-                this,
-                permissionsToRequest.toArray(arrayOf<String>()),
-                REQUEST_PERMISSIONS_REQUEST_CODE);
-        }
     }
-     */
 
-
-
-
-
-
+    companion object {
+        private const val REQUEST_PERMISSIONS_REQUEST_CODE = 123
+    }*/
 }
