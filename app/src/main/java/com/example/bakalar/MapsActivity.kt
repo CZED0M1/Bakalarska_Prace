@@ -4,13 +4,9 @@ package com.example.bakalar
 import android.Manifest
 import android.animation.AnimatorSet
 import android.animation.ObjectAnimator
-import android.app.AlertDialog
-import android.content.Intent
 import android.content.pm.PackageManager
 import android.graphics.Color
-import android.net.Uri
 import android.os.Bundle
-import android.provider.Settings
 import android.util.Log
 import android.view.View
 import android.widget.ImageButton
@@ -20,6 +16,8 @@ import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import androidx.preference.PreferenceManager
 import com.example.testosmroid.R
+import com.google.android.gms.location.FusedLocationProviderClient
+import com.google.android.gms.location.LocationServices
 import org.osmdroid.config.Configuration.getInstance
 import org.osmdroid.events.MapEventsReceiver
 import org.osmdroid.tileprovider.tilesource.TileSourceFactory
@@ -29,11 +27,10 @@ import org.osmdroid.views.overlay.MapEventsOverlay
 import org.osmdroid.views.overlay.Marker
 import org.osmdroid.views.overlay.Polygon
 import org.osmdroid.views.overlay.gestures.RotationGestureOverlay
-import java.security.Permissions
 
 
 class MapsActivity : AppCompatActivity() {
-    //private val REQUEST_PERMISSIONS_REQUEST_CODE = 123
+    private val REQUEST_PERMISSIONS_REQUEST_CODE =1001
     private lateinit var map: MapView
     private var isParkClicked: Boolean = false
     private lateinit var parkingButton: ImageButton
@@ -47,11 +44,14 @@ class MapsActivity : AppCompatActivity() {
         Manifest.permission.ACCESS_FINE_LOCATION,
         Manifest.permission.ACCESS_COARSE_LOCATION
     )
-
+    private lateinit var fusedLocationClient:FusedLocationProviderClient
+//TODO Databáze
+//TODO pemissions
+//TODO actual position
+//TODO requestPermissionsIfNecessary(requiredPermissions)
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        //requestPermissionsIfNecessary(requiredPermissions)TODO
-
+    setContentView(R.layout.activity_maps)
         //handle permissions first, before map is created. not depicted here
 
         //load/initialize the osmdroid configuration, this can be done
@@ -67,18 +67,87 @@ class MapsActivity : AppCompatActivity() {
         //tile servers will get you banned based on this string.
 
         //inflate and create the map
-
-
-        setContentView(R.layout.activity_maps)
-
-
-
-
         map = findViewById(R.id.mapView)
         map.setTileSource(TileSourceFactory.MAPNIK)
         //TODO problém když nešel přidat obrázek a musel se měnit <LinearLayout na <RelativeLayout (překrytí)
 
 
+        setButtons()
+
+
+        addTapOverlay()
+fusedLocationClient=LocationServices.getFusedLocationProviderClient(this)
+
+
+        //TODO problém napsat do bc více map, opraveno
+        map.maxZoomLevel = 20.0
+        map.minZoomLevel = 4.0
+        map.setScrollableAreaLimitLatitude(
+            MapView.getTileSystem().maxLatitude,
+            MapView.getTileSystem().minLatitude,
+            0
+        )
+        map.setScrollableAreaLimitLongitude(
+
+            MapView.getTileSystem().minLongitude,
+            MapView.getTileSystem().maxLongitude,
+            0
+        )
+        val mapController = map.controller
+
+
+        mapController.setZoom(19.0)
+
+
+// Získání aktuální polohy
+    if (ActivityCompat.checkSelfPermission(
+            this,
+            Manifest.permission.ACCESS_FINE_LOCATION
+        ) != PackageManager.PERMISSION_GRANTED && ActivityCompat.checkSelfPermission(
+            this,
+            Manifest.permission.ACCESS_COARSE_LOCATION
+        ) != PackageManager.PERMISSION_GRANTED
+    ) {
+        // TODO: Consider calling
+        //    ActivityCompat#requestPermissions
+        // here to request the missing permissions, and then overriding
+        requestPermissionsIfNecessary(requiredPermissions)
+        // to handle the case where the user grants the permission. See the documentation
+        // for ActivityCompat#requestPermissions for more details.
+        return
+    }
+    fusedLocationClient.lastLocation
+        .addOnSuccessListener { location ->
+            if (location != null) {
+                // Máte aktuální polohu k dispozici
+                val startPoint = GeoPoint(location.latitude, location.longitude)
+                Log.d("Position",startPoint.latitude.toString())
+                mapController.setCenter(startPoint)
+                val marker = Marker(map)
+                marker.position = startPoint
+                marker.icon = ContextCompat.getDrawable(
+                    this@MapsActivity,
+                    org.osmdroid.library.R.drawable.person
+                )
+                marker.setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_BOTTOM)
+                map.overlays.add(marker)
+                map.invalidate()
+            } else {
+                // Nelze získat aktuální polohu
+            }
+        }
+        .addOnFailureListener { e ->
+            // Chyba při získávání polohy
+        }
+
+
+        val rotationGestureOverlay = RotationGestureOverlay(map)
+        rotationGestureOverlay.isEnabled
+        map.setMultiTouchControls(true)
+        map.overlays.add(rotationGestureOverlay)
+    }
+
+    private fun setButtons() {
         parkingButton = findViewById(R.id.addParking)
         //TODO <a href="https://www.flaticon.com/free-icons/parking" title="parking icons">Parking icons created by Bartama Graphic - Flaticon</a>
         cancelButton = findViewById(R.id.cancel)
@@ -94,14 +163,10 @@ class MapsActivity : AppCompatActivity() {
         undoButton.translationY = -600f
         rectangle.translationY = -600f
 
-
-
-
         parkingButton.setOnClickListener {
             startAnimation()
             clearMapAndPoints()
             isParkClicked = !isParkClicked
-            markersButtonClicked()
         }
 
         undoButton.setOnClickListener {
@@ -124,39 +189,42 @@ class MapsActivity : AppCompatActivity() {
                     applicationContext,
                     "Jsou potřeba alespoň 3 body!",
                     Toast.LENGTH_SHORT
-                ).show();
+                ).show()
             }
         }
         cancelButton.setOnClickListener {
             clearMapAndPoints()
         }
+    }
 
-        //TODO problém napsat do bc více map, opraveno
-        map.maxZoomLevel = 20.0
-        map.minZoomLevel = 4.0
-        map.setScrollableAreaLimitLatitude(
-            MapView.getTileSystem().maxLatitude,
-            MapView.getTileSystem().minLatitude,
-            0
-        )
-        map.setScrollableAreaLimitLongitude(
+    private fun addTapOverlay() {
+        val tapOverlay = MapEventsOverlay(object : MapEventsReceiver {
+            override fun singleTapConfirmedHelper(p: GeoPoint?): Boolean {
+                if (!isParkClicked) return false
+                if (p != null) {
+                    val marker = Marker(map)
+                    marker.position = GeoPoint(p.latitude, p.longitude)
+                    geoPoints.add(GeoPoint(p.latitude, p.longitude))
+                    marker.icon = ContextCompat.getDrawable(
+                        this@MapsActivity,
+                        org.osmdroid.library.R.drawable.marker_default
+                    )
+                    marker.title = "Bod ${markers.size}"
+                    marker.setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_BOTTOM)
+                    markers.add(marker)
+                    map.overlays.add(marker)
+                    map.invalidate()
+                }
 
-            MapView.getTileSystem().minLongitude,
-            MapView.getTileSystem().maxLongitude,
-            0
-        )
-        val mapController = map.controller
 
+                return true
+            }
 
-        mapController.setZoom(9.5)
-        val startPoint = GeoPoint(48.8583, 2.2944)
-
-
-        mapController.setCenter(startPoint)
-        val rotationGestureOverlay = RotationGestureOverlay(map)
-        rotationGestureOverlay.isEnabled
-        map.setMultiTouchControls(true)
-        map.overlays.add(rotationGestureOverlay)
+            override fun longPressHelper(p: GeoPoint?): Boolean {
+                return true
+            }
+        })
+        map.overlays.add(tapOverlay)
     }
 
     private fun clearMapAndPoints() {
@@ -185,48 +253,14 @@ class MapsActivity : AppCompatActivity() {
 
     }
 
-
-    private fun markersButtonClicked() {
-        var marker: Marker
-        val tapOverlay = MapEventsOverlay(object : MapEventsReceiver {
-            override fun singleTapConfirmedHelper(p: GeoPoint?): Boolean {
-                if (!isParkClicked) return false
-                if (p != null) {
-                    marker = Marker(map)
-                    marker.position = GeoPoint(p.latitude, p.longitude)
-                    geoPoints.add(GeoPoint(p.latitude, p.longitude))
-                    marker.icon = ContextCompat.getDrawable(
-                        this@MapsActivity,
-                        org.osmdroid.library.R.drawable.marker_default
-                    )
-                    marker.title = "Bod ${markers.size}"
-                    marker.setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_BOTTOM)
-                    markers.add(marker)
-                    map.overlays.add(marker)
-                    map.invalidate()
-
-                }
-
-
-                return true
-            }
-
-            override fun longPressHelper(p: GeoPoint?): Boolean {
-                return true
-            }
-        })
-        map.overlays.add(tapOverlay)
-
-
-    }
-
     override fun onResume() {
         super.onResume()
         //this will refresh the osmdroid configuration on resuming.
         //if you make changes to the configuration, use
         //SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(this);
         //Configuration.getInstance().load(this, PreferenceManager.getDefaultSharedPreferences(this));
-        //map.onResume() //needed for compass, my location overlays, v6.0.0 and up
+        requestPermissionsIfNecessary(requiredPermissions)
+        map.onResume() //needed for compass, my location overlays, v6.0.0 and up
     }
 
     override fun onPause() {
@@ -238,84 +272,38 @@ class MapsActivity : AppCompatActivity() {
         map.onPause()  //needed for compass, my location overlays, v6.0.0 and up
     }
 
-/*
-    private fun requestPermissionsIfNecessary(permissions: Array<String>) {
-        try {
-            val permissionsToRequest = ArrayList<String>()
 
-            for (permission in permissions) {
-                if (ContextCompat.checkSelfPermission(this, permission) != PackageManager.PERMISSION_GRANTED) {
-                    permissionsToRequest.add(permission)
-                }
-            }
-
-            if (permissionsToRequest.isNotEmpty()) {
-                showPermissionRequestDialog(permissionsToRequest.toTypedArray())
-            }
-        } catch (e: Exception) {
-            Log.e("MapsActivity", "Chyba při žádosti o oprávnění: ${e.message}")
-        }
-    }
-
-    private fun showPermissionRequestDialog(permissions: Array<String>) {
-        try {
-            AlertDialog.Builder(this)
-                .setTitle("Oprávnění potřebná pro správnou funkci aplikace")
-                .setMessage("Aplikace vyžaduje některá oprávnění pro správnou funkci. Povolit oprávnění?")
-                .setPositiveButton("Ano") { _, _ ->
-                    try {
-                        ActivityCompat.requestPermissions(
-                            this,
-                            permissions,
-                            REQUEST_PERMISSIONS_REQUEST_CODE
-                        )
-                    } catch (e: Exception) {
-                        Log.e("MapsActivity", "Chyba při žádosti o oprávnění: ${e.message}")
-                    }
-                    closeDialog()
-                }
-                .setNegativeButton("Ne") { _, _ ->
-                    // Zde můžete zobrazit vysvětlující dialog nebo podniknout další akce
-                    finish()
-                }
-                .show()
-        } catch (e: Exception) {
-            Log.e("MapsActivity", "Chyba při zobrazení dialogu: ${e.message}")
-        }
-    }
-
-    private fun closeDialog() {
-        runOnUiThread {
-            // Zde uzavřete dialog
-            // např. dialog.dismiss() nebo finish()
-        }
-    }
-
-    override fun onRequestPermissionsResult(
-        requestCode: Int,
-        permissions: Array<out String>,
-        grantResults: IntArray
-    ) {
+    override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
-
-        if (requestCode == REQUEST_PERMISSIONS_REQUEST_CODE) {
-            var allPermissionsGranted = true
-
-            for (result in grantResults) {
-                if (result != PackageManager.PERMISSION_GRANTED) {
-                    allPermissionsGranted = false
-                    break
-                }
-            }
-
-            if (!allPermissionsGranted) {
-                // Alespoň jedno oprávnění nebylo schváleno, můžete zobrazit další vysvětlující dialog nebo podniknout další akce
-                finish()
-            }
+        val permissionsToRequest = ArrayList<String>()
+        var i = 0
+        while (i < grantResults.size) {
+            permissionsToRequest.add(permissions[i])
+            i++
+        }
+        if (permissionsToRequest.size > 0) {
+            ActivityCompat.requestPermissions(
+                this,
+                permissionsToRequest.toTypedArray(),
+                REQUEST_PERMISSIONS_REQUEST_CODE)
         }
     }
 
-    companion object {
-        private const val REQUEST_PERMISSIONS_REQUEST_CODE = 123
-    }*/
+
+    private fun requestPermissionsIfNecessary(permissions:Array<String>) {
+        val permissionsToRequest = ArrayList<String>()
+        permissions.forEach { permission ->
+        if (ContextCompat.checkSelfPermission(this, permission)
+                != PackageManager.PERMISSION_GRANTED) {
+            // Permission is not granted
+            permissionsToRequest.add(permission)
+        }
+    }
+        if (permissionsToRequest.size > 0) {
+            ActivityCompat.requestPermissions(
+                    this,
+                    permissionsToRequest.toArray(emptyArray<String>()),
+                    REQUEST_PERMISSIONS_REQUEST_CODE)
+        }
+    }
 }
