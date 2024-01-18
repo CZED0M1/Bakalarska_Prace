@@ -22,7 +22,6 @@ import androidx.core.content.ContextCompat
 import androidx.preference.PreferenceManager
 import com.example.testosmroid.R
 import com.google.android.gms.location.FusedLocationProviderClient
-import com.google.android.gms.location.LocationRequest
 import com.google.android.gms.location.LocationServices
 import com.google.android.gms.location.Priority
 import com.google.android.gms.tasks.CancellationToken
@@ -37,13 +36,10 @@ import org.osmdroid.views.overlay.MapEventsOverlay
 import org.osmdroid.views.overlay.Marker
 import org.osmdroid.views.overlay.Polygon
 import org.osmdroid.views.overlay.gestures.RotationGestureOverlay
-import org.osmdroid.views.overlay.mylocation.GpsMyLocationProvider
-import org.osmdroid.views.overlay.mylocation.MyLocationNewOverlay
 
 
 class MapsActivity : AppCompatActivity() {
     private lateinit var fusedLocationClient: FusedLocationProviderClient
-    private lateinit var mLocationOverlay: MyLocationNewOverlay
     private lateinit var map: MapView
     private var isParkClicked: Boolean = false
     private lateinit var parkingButton: ImageButton
@@ -57,7 +53,7 @@ class MapsActivity : AppCompatActivity() {
         Manifest.permission.ACCESS_FINE_LOCATION,
         Manifest.permission.ACCESS_COARSE_LOCATION
     )
-    val REQUEST_PERMISSIONS_REQUEST_CODE =1001
+    private val permissionRequestCode =1001
 //TODO Databáze
 //TODO remove logs
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -241,10 +237,10 @@ class MapsActivity : AppCompatActivity() {
         //Configuration.getInstance().save(this, prefs);
         map.onPause()  //needed for compass, my location overlays, v6.0.0 and up
     }
-    fun showPermissionExplanationDialog(context: Context, permissionExplanation: String) {
+    private fun showPermissionExplanationDialog(context: Context) {
         val builder = AlertDialog.Builder(context)
         builder.setTitle("Povolení potřebná pro aplikaci")
-        builder.setMessage(permissionExplanation)
+        builder.setMessage("Aplikace potřebuje povolení pro ...")
         builder.setPositiveButton("Povolit") { _, _ ->
             // Uživatel klikl na Povolit, přejde do nastavení aplikace
             navigateToAppSettings(context)
@@ -280,8 +276,8 @@ class MapsActivity : AppCompatActivity() {
         }
 
         if (permissionsToRequest.isNotEmpty()) {
-            val permissionExplanation = "Aplikace potřebuje povolení pro ..."
-            showPermissionExplanationDialog(this, permissionExplanation)
+
+            showPermissionExplanationDialog(this)
             Log.d("PermissionDenied", "Uživatel klikl na 'nepovolit'")
             permissionsToRequest.clear()
         } else {
@@ -340,7 +336,7 @@ class MapsActivity : AppCompatActivity() {
             ActivityCompat.requestPermissions(
                 this,
                 permissionsToRequest.toTypedArray(),
-                REQUEST_PERMISSIONS_REQUEST_CODE
+                permissionRequestCode
             )
         } else {
             initializeLocation() // Permissions already granted, initialize the location
