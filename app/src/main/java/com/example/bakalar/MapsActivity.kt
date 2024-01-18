@@ -21,23 +21,12 @@ import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import androidx.preference.PreferenceManager
 import com.example.testosmroid.R
-<<<<<<< HEAD
-<<<<<<< Updated upstream
-=======
 import com.google.android.gms.location.FusedLocationProviderClient
-=======
-import com.google.android.gms.location.FusedLocationProviderClient
-import com.google.android.gms.location.LocationRequest
->>>>>>> 087d101d8bdd74d522251121a4aa464c19773b37
 import com.google.android.gms.location.LocationServices
 import com.google.android.gms.location.Priority
 import com.google.android.gms.tasks.CancellationToken
 import com.google.android.gms.tasks.CancellationTokenSource
 import com.google.android.gms.tasks.OnTokenCanceledListener
-<<<<<<< HEAD
->>>>>>> Stashed changes
-=======
->>>>>>> 087d101d8bdd74d522251121a4aa464c19773b37
 import org.osmdroid.config.Configuration.getInstance
 import org.osmdroid.events.MapEventsReceiver
 import org.osmdroid.tileprovider.tilesource.TileSourceFactory
@@ -47,28 +36,10 @@ import org.osmdroid.views.overlay.MapEventsOverlay
 import org.osmdroid.views.overlay.Marker
 import org.osmdroid.views.overlay.Polygon
 import org.osmdroid.views.overlay.gestures.RotationGestureOverlay
-<<<<<<< HEAD
-<<<<<<< Updated upstream
-import org.osmdroid.views.overlay.gridlines.LatLonGridlineOverlay2
-
-
-class MapsActivity : AppCompatActivity() {
-    private val REQUEST_PERMISSIONS_REQUEST_CODE = 1
-    private lateinit var map : MapView
-=======
 
 
 class MapsActivity : AppCompatActivity() {
     private lateinit var fusedLocationClient: FusedLocationProviderClient
-=======
-import org.osmdroid.views.overlay.mylocation.GpsMyLocationProvider
-import org.osmdroid.views.overlay.mylocation.MyLocationNewOverlay
-
-
-class MapsActivity : AppCompatActivity() {
-    private lateinit var fusedLocationClient: FusedLocationProviderClient
-    private lateinit var mLocationOverlay: MyLocationNewOverlay
->>>>>>> 087d101d8bdd74d522251121a4aa464c19773b37
     private lateinit var map: MapView
     private var isParkClicked: Boolean = false
     private lateinit var parkingButton: ImageButton
@@ -82,16 +53,9 @@ class MapsActivity : AppCompatActivity() {
         Manifest.permission.ACCESS_FINE_LOCATION,
         Manifest.permission.ACCESS_COARSE_LOCATION
     )
-<<<<<<< HEAD
     private val permissionRequestCode =1001
 //TODO Databáze
 //TODO remove logs
->>>>>>> Stashed changes
-=======
-    val REQUEST_PERMISSIONS_REQUEST_CODE =1001
-//TODO Databáze
-//TODO remove logs
->>>>>>> 087d101d8bdd74d522251121a4aa464c19773b37
     override fun onCreate(savedInstanceState: Bundle?) {
     super.onCreate(savedInstanceState)
 
@@ -273,13 +237,10 @@ class MapsActivity : AppCompatActivity() {
         //Configuration.getInstance().save(this, prefs);
         map.onPause()  //needed for compass, my location overlays, v6.0.0 and up
     }
-<<<<<<< HEAD
-<<<<<<< Updated upstream
-=======
     private fun showPermissionExplanationDialog(context: Context) {
         val builder = AlertDialog.Builder(context)
         builder.setTitle("Povolení potřebná pro aplikaci")
-        builder.setMessage("Aplikace potřebuje povolení pro zjištění polohy")
+        builder.setMessage("Aplikace potřebuje povolení pro ...")
         builder.setPositiveButton("Povolit") { _, _ ->
             // Uživatel klikl na Povolit, přejde do nastavení aplikace
             navigateToAppSettings(context)
@@ -297,26 +258,25 @@ class MapsActivity : AppCompatActivity() {
         intent.data = android.net.Uri.parse("package:" + context.packageName)
         context.startActivity(intent)
     }
->>>>>>> Stashed changes
 
 
-    override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
+    override fun onRequestPermissionsResult(
+        requestCode: Int,
+        permissions: Array<out String>,
+        grantResults: IntArray
+    ) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+
         val permissionsToRequest = ArrayList<String>()
-        var i = 0
-        while (i < grantResults.size) {
-            permissionsToRequest.add(permissions[i])
-            i++
+        for (i in grantResults.indices) {
+            if (grantResults[i] != PackageManager.PERMISSION_GRANTED) {
+                permissionsToRequest.add(permissions[i])
+                break
+            }
         }
-<<<<<<< Updated upstream
-        if (permissionsToRequest.size > 0) {
-            ActivityCompat.requestPermissions(
-                this,
-                permissionsToRequest.toTypedArray(),
-                REQUEST_PERMISSIONS_REQUEST_CODE)
-=======
 
         if (permissionsToRequest.isNotEmpty()) {
+
             showPermissionExplanationDialog(this)
             Log.d("PermissionDenied", "Uživatel klikl na 'nepovolit'")
             permissionsToRequest.clear()
@@ -380,112 +340,6 @@ class MapsActivity : AppCompatActivity() {
             )
         } else {
             initializeLocation() // Permissions already granted, initialize the location
->>>>>>> Stashed changes
-=======
-    fun showPermissionExplanationDialog(context: Context, permissionExplanation: String) {
-        val builder = AlertDialog.Builder(context)
-        builder.setTitle("Povolení potřebná pro aplikaci")
-        builder.setMessage(permissionExplanation)
-        builder.setPositiveButton("Povolit") { _, _ ->
-            // Uživatel klikl na Povolit, přejde do nastavení aplikace
-            navigateToAppSettings(context)
-        }
-        builder.setNegativeButton("Zrušit") { dialog, _ ->
-            // Uživatel klikl na Zrušit
-            dialog.dismiss()
-        }
-        builder.setCancelable(false)
-        builder.show()
-    }
-
-    private fun navigateToAppSettings(context: Context) {
-        val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS)
-        intent.data = android.net.Uri.parse("package:" + context.packageName)
-        context.startActivity(intent)
-    }
-
-
-    override fun onRequestPermissionsResult(
-        requestCode: Int,
-        permissions: Array<out String>,
-        grantResults: IntArray
-    ) {
-        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
-
-        val permissionsToRequest = ArrayList<String>()
-        for (i in grantResults.indices) {
-            if (grantResults[i] != PackageManager.PERMISSION_GRANTED) {
-                permissionsToRequest.add(permissions[i])
-                break
-            }
-        }
-
-        if (permissionsToRequest.isNotEmpty()) {
-            val permissionExplanation = "Aplikace potřebuje povolení pro ..."
-            showPermissionExplanationDialog(this, permissionExplanation)
-            Log.d("PermissionDenied", "Uživatel klikl na 'nepovolit'")
-            permissionsToRequest.clear()
-        } else {
-            initializeLocation() // Requested permissions granted, initialize the location
-        }
-    }
-
-    private fun initializeLocation() {
-        if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED) {
-            // Permissions for location are granted, proceed with location actions
-            fusedLocationClient.getCurrentLocation(
-                Priority.PRIORITY_HIGH_ACCURACY,
-                object : CancellationToken() {
-                    override fun onCanceledRequested(p0: OnTokenCanceledListener) = CancellationTokenSource().token
-
-                    override fun isCancellationRequested() = false
-                }
-            ).addOnSuccessListener { location: Location? ->
-                if (location == null) {
-                    Log.d("PermissionDenied", "Poloha null")
-                } else {
-                    Log.d("PermissionDenied", "Poloha not null")
-                    val lat = location.latitude
-                    val lon = location.longitude
-
-                    val actualPosition = GeoPoint(lat, lon)
-
-                    map.controller.setCenter(actualPosition)
-
-                    val marker = Marker(map)
-                    marker.position = actualPosition
-
-                    marker.icon = ContextCompat.getDrawable(
-                        this@MapsActivity,
-                        org.osmdroid.library.R.drawable.person
-                    )
-                    marker.setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_BOTTOM)
-                    map.overlays.add(marker)
-                    map.invalidate()
-                }
-            }
-        }
-    }
-
-    private fun requestPermissionsIfNecessary(permissions: Array<String>) {
-        Log.d("PermissionDenied", "requestPermissionsIfNecessary")
-
-        val permissionsToRequest = ArrayList<String>()
-        for (permission in permissions) {
-            if (ContextCompat.checkSelfPermission(this, permission) != PackageManager.PERMISSION_GRANTED) {
-                permissionsToRequest.add(permission)
-            }
-        }
-
-        if (permissionsToRequest.isNotEmpty()) {
-            ActivityCompat.requestPermissions(
-                this,
-                permissionsToRequest.toTypedArray(),
-                REQUEST_PERMISSIONS_REQUEST_CODE
-            )
-        } else {
-            initializeLocation() // Permissions already granted, initialize the location
->>>>>>> 087d101d8bdd74d522251121a4aa464c19773b37
         }
     }
 
