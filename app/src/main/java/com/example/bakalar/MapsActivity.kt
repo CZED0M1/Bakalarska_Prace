@@ -6,6 +6,7 @@ import android.animation.AnimatorSet
 import android.animation.ObjectAnimator
 import android.content.pm.PackageManager
 import android.graphics.Color
+import android.location.Location
 import android.os.Bundle
 import android.util.Log
 import android.view.View
@@ -17,7 +18,12 @@ import androidx.core.content.ContextCompat
 import androidx.preference.PreferenceManager
 import com.example.testosmroid.R
 import com.google.android.gms.location.FusedLocationProviderClient
+import com.google.android.gms.location.LocationRequest
 import com.google.android.gms.location.LocationServices
+import com.google.android.gms.location.Priority
+import com.google.android.gms.tasks.CancellationToken
+import com.google.android.gms.tasks.CancellationTokenSource
+import com.google.android.gms.tasks.OnTokenCanceledListener
 import org.osmdroid.config.Configuration.getInstance
 import org.osmdroid.events.MapEventsReceiver
 import org.osmdroid.tileprovider.tilesource.TileSourceFactory
@@ -27,10 +33,13 @@ import org.osmdroid.views.overlay.MapEventsOverlay
 import org.osmdroid.views.overlay.Marker
 import org.osmdroid.views.overlay.Polygon
 import org.osmdroid.views.overlay.gestures.RotationGestureOverlay
+import org.osmdroid.views.overlay.mylocation.GpsMyLocationProvider
+import org.osmdroid.views.overlay.mylocation.MyLocationNewOverlay
 
 
 class MapsActivity : AppCompatActivity() {
-    private val REQUEST_PERMISSIONS_REQUEST_CODE =1001
+    private lateinit var fusedLocationClient: FusedLocationProviderClient
+    private lateinit var mLocationOverlay: MyLocationNewOverlay
     private lateinit var map: MapView
     private var isParkClicked: Boolean = false
     private lateinit var parkingButton: ImageButton
@@ -44,108 +53,70 @@ class MapsActivity : AppCompatActivity() {
         Manifest.permission.ACCESS_FINE_LOCATION,
         Manifest.permission.ACCESS_COARSE_LOCATION
     )
-    private lateinit var fusedLocationClient:FusedLocationProviderClient
+    val REQUEST_PERMISSIONS_REQUEST_CODE =1001
 //TODO Databáze
 //TODO pemissions
 //TODO actual position
 //TODO requestPermissionsIfNecessary(requiredPermissions)
     override fun onCreate(savedInstanceState: Bundle?) {
-        super.onCreate(savedInstanceState)
+    super.onCreate(savedInstanceState)
+
+    fusedLocationClient = LocationServices.getFusedLocationProviderClient(this)
+    requestPermissionsIfNecessary(requiredPermissions)
+    getInstance().load(this, PreferenceManager.getDefaultSharedPreferences(this))
+
     setContentView(R.layout.activity_maps)
-        //handle permissions first, before map is created. not depicted here
 
-        //load/initialize the osmdroid configuration, this can be done
-        // This won't work unless you have imported this: org.osmdroid.config.Configuration.*
-        //TODO problém <uses-permission android:name="android.permission.INTERNET" /> stahuje mapu
-        //TODO tady byl problém, že je zastaralé https://stackoverflow.com/questions/56833657/preferencemanager-getdefaultsharedpreferences-deprecated-in-android-q
-        getInstance().load(this, PreferenceManager.getDefaultSharedPreferences(this))
-        //setting this before the layout is inflated is a good idea
-        //it 'should' ensure that the map has a writable location for the map cache, even without permissions
-        //if no tiles are displayed, you can try overriding the cache path using Configuration.getInstance().setCachePath
-        //see also StorageUtils
-        //note, the load method also sets the HTTP User Agent to your application's package name, if you abuse osm's
-        //tile servers will get you banned based on this string.
+    //handle permissions first, before map is created. not depicted here
+    //load/initialize the osmdroid configuration, this can be done
+    // This won't work unless you have imported this: org.osmdroid.config.Configuration.*
+    //TODO problém <uses-permission android:name="android.permission.INTERNET" /> stahuje mapu
+    //TODO tady byl problém, že je zastaralé https://stackoverflow.com/questions/56833657/preferencemanager-getdefaultsharedpreferences-deprecated-in-android-q
+    //setting this before the layout is inflated is a good idea
+    //it 'should' ensure that the map has a writable location for the map cache, even without permissions
+    //if no tiles are displayed, you can try overriding the cache path using Configuration.getInstance().setCachePath
+    //see also StorageUtils
+    //note, the load method also sets the HTTP User Agent to your application's package name, if you abuse osm's
+    //tile servers will get you banned based on this string.
 
-        //inflate and create the map
-        map = findViewById(R.id.mapView)
-        map.setTileSource(TileSourceFactory.MAPNIK)
-        //TODO problém když nešel přidat obrázek a musel se měnit <LinearLayout na <RelativeLayout (překrytí)
-
-
-        setButtons()
+    //inflate and create the map
+    map = findViewById(R.id.mapView)
+    map.setTileSource(TileSourceFactory.MAPNIK)
+    //TODO problém když nešel přidat obrázek a musel se měnit <LinearLayout na <RelativeLayout (překrytí)
 
 
-        addTapOverlay()
-fusedLocationClient=LocationServices.getFusedLocationProviderClient(this)
+    setButtons()
 
 
-        //TODO problém napsat do bc více map, opraveno
-        map.maxZoomLevel = 20.0
-        map.minZoomLevel = 4.0
-        map.setScrollableAreaLimitLatitude(
-            MapView.getTileSystem().maxLatitude,
-            MapView.getTileSystem().minLatitude,
-            0
-        )
-        map.setScrollableAreaLimitLongitude(
-
-            MapView.getTileSystem().minLongitude,
-            MapView.getTileSystem().maxLongitude,
-            0
-        )
-        val mapController = map.controller
+    addTapOverlay()
 
 
-        mapController.setZoom(19.0)
+    //TODO problém napsat do bc více map, opraveno
+    map.maxZoomLevel = 20.0
+    map.minZoomLevel = 4.0
+    map.setScrollableAreaLimitLatitude(
+        MapView.getTileSystem().maxLatitude,
+        MapView.getTileSystem().minLatitude,
+        0
+    )
+    map.setScrollableAreaLimitLongitude(
+
+        MapView.getTileSystem().minLongitude,
+        MapView.getTileSystem().maxLongitude,
+        0
+    )
+    val mapController = map.controller
 
 
-// Získání aktuální polohy
-    if (ActivityCompat.checkSelfPermission(
-            this,
-            Manifest.permission.ACCESS_FINE_LOCATION
-        ) != PackageManager.PERMISSION_GRANTED && ActivityCompat.checkSelfPermission(
-            this,
-            Manifest.permission.ACCESS_COARSE_LOCATION
-        ) != PackageManager.PERMISSION_GRANTED
-    ) {
-        // TODO: Consider calling
-        //    ActivityCompat#requestPermissions
-        // here to request the missing permissions, and then overriding
-        requestPermissionsIfNecessary(requiredPermissions)
-        // to handle the case where the user grants the permission. See the documentation
-        // for ActivityCompat#requestPermissions for more details.
-        return
-    }
-    fusedLocationClient.lastLocation
-        .addOnSuccessListener { location ->
-            if (location != null) {
-                // Máte aktuální polohu k dispozici
-                val startPoint = GeoPoint(location.latitude, location.longitude)
-                Log.d("Position",startPoint.latitude.toString())
-                mapController.setCenter(startPoint)
-                val marker = Marker(map)
-                marker.position = startPoint
-                marker.icon = ContextCompat.getDrawable(
-                    this@MapsActivity,
-                    org.osmdroid.library.R.drawable.person
-                )
-                marker.setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_BOTTOM)
-                map.overlays.add(marker)
-                map.invalidate()
-            } else {
-                // Nelze získat aktuální polohu
-            }
-        }
-        .addOnFailureListener { e ->
-            // Chyba při získávání polohy
-        }
+    mapController.setZoom(19.0)
 
 
-        val rotationGestureOverlay = RotationGestureOverlay(map)
-        rotationGestureOverlay.isEnabled
-        map.setMultiTouchControls(true)
-        map.overlays.add(rotationGestureOverlay)
-    }
+    val rotationGestureOverlay = RotationGestureOverlay(map)
+    rotationGestureOverlay.isEnabled
+    map.setMultiTouchControls(true)
+    map.overlays.add(rotationGestureOverlay)
+
+}
 
     private fun setButtons() {
         parkingButton = findViewById(R.id.addParking)
@@ -258,7 +229,7 @@ fusedLocationClient=LocationServices.getFusedLocationProviderClient(this)
         //this will refresh the osmdroid configuration on resuming.
         //if you make changes to the configuration, use
         //SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(this);
-        //Configuration.getInstance().load(this, PreferenceManager.getDefaultSharedPreferences(this));
+        //Configuration.getInstance().load(this, PreferenceManager.getDefaultSharedPreferences(this))
         requestPermissionsIfNecessary(requiredPermissions)
         map.onResume() //needed for compass, my location overlays, v6.0.0 and up
     }
@@ -271,39 +242,72 @@ fusedLocationClient=LocationServices.getFusedLocationProviderClient(this)
         //Configuration.getInstance().save(this, prefs);
         map.onPause()  //needed for compass, my location overlays, v6.0.0 and up
     }
-
-
     override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+
         val permissionsToRequest = ArrayList<String>()
-        var i = 0
-        while (i < grantResults.size) {
-            permissionsToRequest.add(permissions[i])
-            i++
+        for (i in grantResults.indices) {
+            if (grantResults[i] != PackageManager.PERMISSION_GRANTED) {
+                permissionsToRequest.add(permissions[i])
+            }
         }
-        if (permissionsToRequest.size > 0) {
+
+        if (permissionsToRequest.isNotEmpty()) {
             ActivityCompat.requestPermissions(
                 this,
                 permissionsToRequest.toTypedArray(),
-                REQUEST_PERMISSIONS_REQUEST_CODE)
+                REQUEST_PERMISSIONS_REQUEST_CODE
+            )
         }
     }
 
 
-    private fun requestPermissionsIfNecessary(permissions:Array<String>) {
+    private fun requestPermissionsIfNecessary(permissions: Array<String>) {
+
         val permissionsToRequest = ArrayList<String>()
-        permissions.forEach { permission ->
-        if (ContextCompat.checkSelfPermission(this, permission)
-                != PackageManager.PERMISSION_GRANTED) {
-            // Permission is not granted
-            permissionsToRequest.add(permission)
+        for (permission in permissions) {
+            if (ContextCompat.checkSelfPermission(this, permission) != PackageManager.PERMISSION_GRANTED) {
+                permissionsToRequest.add(permission)
+            }
         }
-    }
-        if (permissionsToRequest.size > 0) {
+
+        if (permissionsToRequest.isNotEmpty()) {
             ActivityCompat.requestPermissions(
-                    this,
-                    permissionsToRequest.toArray(emptyArray<String>()),
-                    REQUEST_PERMISSIONS_REQUEST_CODE)
+                this,
+                permissionsToRequest.toTypedArray(),
+                REQUEST_PERMISSIONS_REQUEST_CODE
+            )
+        } else {
+            fusedLocationClient.getCurrentLocation(Priority.PRIORITY_HIGH_ACCURACY , object : CancellationToken() {
+                override fun onCanceledRequested(p0: OnTokenCanceledListener) = CancellationTokenSource().token
+
+                override fun isCancellationRequested() = false
+            })
+                .addOnSuccessListener { location: Location? ->
+                    if (location == null)
+                    else {
+                        val lat = location.latitude
+                        val lon = location.longitude
+
+                        val actualPosition = GeoPoint(lat,lon)
+
+                        map.controller.setCenter(actualPosition)
+
+                        val marker = Marker(map)
+                        marker.position = actualPosition
+
+                        marker.icon = ContextCompat.getDrawable(
+                            this@MapsActivity,
+                            org.osmdroid.library.R.drawable.person
+                        )
+                        marker.setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_BOTTOM)
+                        map.overlays.add(marker)
+                        map.invalidate()
+                    }
+
+                }
         }
     }
+
+
 }
