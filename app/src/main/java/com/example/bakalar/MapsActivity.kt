@@ -4,14 +4,18 @@ package com.example.bakalar
 import android.Manifest
 import android.animation.AnimatorSet
 import android.animation.ObjectAnimator
+import android.content.Context
+import android.content.Intent
 import android.content.pm.PackageManager
 import android.graphics.Color
 import android.location.Location
 import android.os.Bundle
+import android.provider.Settings
 import android.util.Log
 import android.view.View
 import android.widget.ImageButton
 import android.widget.Toast
+import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
@@ -55,9 +59,7 @@ class MapsActivity : AppCompatActivity() {
     )
     val REQUEST_PERMISSIONS_REQUEST_CODE =1001
 //TODO Databáze
-//TODO pemissions
-//TODO actual position
-//TODO requestPermissionsIfNecessary(requiredPermissions)
+//TODO remove logs
     override fun onCreate(savedInstanceState: Bundle?) {
     super.onCreate(savedInstanceState)
 
@@ -220,8 +222,6 @@ class MapsActivity : AppCompatActivity() {
         animatorSet.duration = 1000
 
         animatorSet.start()
-
-
     }
 
     override fun onResume() {
@@ -230,7 +230,6 @@ class MapsActivity : AppCompatActivity() {
         //if you make changes to the configuration, use
         //SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(this);
         //Configuration.getInstance().load(this, PreferenceManager.getDefaultSharedPreferences(this))
-        requestPermissionsIfNecessary(requiredPermissions)
         map.onResume() //needed for compass, my location overlays, v6.0.0 and up
     }
 
@@ -242,27 +241,93 @@ class MapsActivity : AppCompatActivity() {
         //Configuration.getInstance().save(this, prefs);
         map.onPause()  //needed for compass, my location overlays, v6.0.0 and up
     }
-    override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
+    fun showPermissionExplanationDialog(context: Context, permissionExplanation: String) {
+        val builder = AlertDialog.Builder(context)
+        builder.setTitle("Povolení potřebná pro aplikaci")
+        builder.setMessage(permissionExplanation)
+        builder.setPositiveButton("Povolit") { _, _ ->
+            // Uživatel klikl na Povolit, přejde do nastavení aplikace
+            navigateToAppSettings(context)
+        }
+        builder.setNegativeButton("Zrušit") { dialog, _ ->
+            // Uživatel klikl na Zrušit
+            dialog.dismiss()
+        }
+        builder.setCancelable(false)
+        builder.show()
+    }
+
+    private fun navigateToAppSettings(context: Context) {
+        val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS)
+        intent.data = android.net.Uri.parse("package:" + context.packageName)
+        context.startActivity(intent)
+    }
+
+
+    override fun onRequestPermissionsResult(
+        requestCode: Int,
+        permissions: Array<out String>,
+        grantResults: IntArray
+    ) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
 
         val permissionsToRequest = ArrayList<String>()
         for (i in grantResults.indices) {
             if (grantResults[i] != PackageManager.PERMISSION_GRANTED) {
                 permissionsToRequest.add(permissions[i])
+                break
             }
         }
 
         if (permissionsToRequest.isNotEmpty()) {
-            ActivityCompat.requestPermissions(
-                this,
-                permissionsToRequest.toTypedArray(),
-                REQUEST_PERMISSIONS_REQUEST_CODE
-            )
+            val permissionExplanation = "Aplikace potřebuje povolení pro ..."
+            showPermissionExplanationDialog(this, permissionExplanation)
+            Log.d("PermissionDenied", "Uživatel klikl na 'nepovolit'")
+            permissionsToRequest.clear()
+        } else {
+            initializeLocation() // Requested permissions granted, initialize the location
         }
     }
 
+    private fun initializeLocation() {
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED) {
+            // Permissions for location are granted, proceed with location actions
+            fusedLocationClient.getCurrentLocation(
+                Priority.PRIORITY_HIGH_ACCURACY,
+                object : CancellationToken() {
+                    override fun onCanceledRequested(p0: OnTokenCanceledListener) = CancellationTokenSource().token
+
+                    override fun isCancellationRequested() = false
+                }
+            ).addOnSuccessListener { location: Location? ->
+                if (location == null) {
+                    Log.d("PermissionDenied", "Poloha null")
+                } else {
+                    Log.d("PermissionDenied", "Poloha not null")
+                    val lat = location.latitude
+                    val lon = location.longitude
+
+                    val actualPosition = GeoPoint(lat, lon)
+
+                    map.controller.setCenter(actualPosition)
+
+                    val marker = Marker(map)
+                    marker.position = actualPosition
+
+                    marker.icon = ContextCompat.getDrawable(
+                        this@MapsActivity,
+                        org.osmdroid.library.R.drawable.person
+                    )
+                    marker.setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_BOTTOM)
+                    map.overlays.add(marker)
+                    map.invalidate()
+                }
+            }
+        }
+    }
 
     private fun requestPermissionsIfNecessary(permissions: Array<String>) {
+        Log.d("PermissionDenied", "requestPermissionsIfNecessary")
 
         val permissionsToRequest = ArrayList<String>()
         for (permission in permissions) {
@@ -278,34 +343,7 @@ class MapsActivity : AppCompatActivity() {
                 REQUEST_PERMISSIONS_REQUEST_CODE
             )
         } else {
-            fusedLocationClient.getCurrentLocation(Priority.PRIORITY_HIGH_ACCURACY , object : CancellationToken() {
-                override fun onCanceledRequested(p0: OnTokenCanceledListener) = CancellationTokenSource().token
-
-                override fun isCancellationRequested() = false
-            })
-                .addOnSuccessListener { location: Location? ->
-                    if (location == null)
-                    else {
-                        val lat = location.latitude
-                        val lon = location.longitude
-
-                        val actualPosition = GeoPoint(lat,lon)
-
-                        map.controller.setCenter(actualPosition)
-
-                        val marker = Marker(map)
-                        marker.position = actualPosition
-
-                        marker.icon = ContextCompat.getDrawable(
-                            this@MapsActivity,
-                            org.osmdroid.library.R.drawable.person
-                        )
-                        marker.setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_BOTTOM)
-                        map.overlays.add(marker)
-                        map.invalidate()
-                    }
-
-                }
+            initializeLocation() // Permissions already granted, initialize the location
         }
     }
 
