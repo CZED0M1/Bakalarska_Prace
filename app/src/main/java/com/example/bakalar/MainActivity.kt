@@ -1,15 +1,8 @@
 package com.example.bakalar
-
-import android.app.Activity
 import android.content.Intent
-import android.net.Uri
 import androidx.appcompat.app.AppCompatActivity
 import android.os.Bundle
-import android.provider.DocumentsContract
-import android.provider.OpenableColumns
 import android.widget.Button
-import androidx.activity.result.contract.ActivityResultContracts
-import androidx.core.content.MimeTypeFilter
 import com.example.testosmroid.R
 
 class MainActivity : AppCompatActivity() {
@@ -22,6 +15,15 @@ class MainActivity : AppCompatActivity() {
 
         openMap()
         openFileChooser()
+        clearDatabase()
+    }
+
+    private fun clearDatabase() {
+        val openMap = findViewById<Button>(R.id.buttonSmazat)
+        openMap.setOnClickListener {
+            val manager = DatabaseManager.getInstance(this@MainActivity)
+            manager.deleteAll()
+        }
     }
 
     private fun openMap() {
