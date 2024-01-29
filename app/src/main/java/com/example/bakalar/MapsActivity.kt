@@ -11,7 +11,6 @@ import android.graphics.Color
 import android.location.Location
 import android.os.Bundle
 import android.provider.Settings
-import android.util.Log
 import android.view.View
 import android.widget.ImageButton
 import android.widget.Toast
@@ -54,6 +53,7 @@ class MapsActivity : AppCompatActivity() {
         Manifest.permission.ACCESS_COARSE_LOCATION
     )
     private val permissionRequestCode =1001
+    private lateinit var databaseManager:DatabaseManager
 //TODO Databáze
 //TODO remove logs
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -88,6 +88,40 @@ class MapsActivity : AppCompatActivity() {
 
     addTapOverlay()
 
+    setMap()
+    databaseManager = DatabaseManager.getInstance(this@MapsActivity)
+    addPolygons()
+
+}
+
+
+    private fun addPolygons() {
+        val arr: ArrayList<PolygonGeopoint> = databaseManager.selectAll()
+        val polygons = arr.map { it.polygonId }.distinct()
+        polygons.forEach { poly ->
+            val samePolygonId = arr.filter { pol ->
+                pol.polygonId == poly
+            }
+            val arrayGeo=arrayListOf<GeoPoint>()
+            samePolygonId.forEach {
+                arrayGeo.add(GeoPoint(it.latitude,it.longitude))
+            }
+                val polygon = Polygon()
+                polygon.fillPaint.color = Color.parseColor("#4EFF0000") //set fill color
+                polygon.outlinePaint.color = Color.parseColor("#4EFF0000")
+                polygon.points = arrayGeo
+
+                map.overlays.add(polygon)
+                arrayGeo.clear()
+
+
+        }
+        map.invalidate()
+    }
+
+
+
+    private fun setMap() {
 
     //TODO problém napsat do bc více map, opraveno
     map.maxZoomLevel = 20.0
@@ -113,9 +147,7 @@ class MapsActivity : AppCompatActivity() {
     rotationGestureOverlay.isEnabled
     map.setMultiTouchControls(true)
     map.overlays.add(rotationGestureOverlay)
-
 }
-
     private fun setButtons() {
         parkingButton = findViewById(R.id.addParking)
         //TODO <a href="https://www.flaticon.com/free-icons/parking" title="parking icons">Parking icons created by Bartama Graphic - Flaticon</a>
@@ -146,17 +178,23 @@ class MapsActivity : AppCompatActivity() {
             map.invalidate()
         }
         addButton.setOnClickListener {
-            if (markers.size > 2) {
+            if (markers.size > 1) {
                 val polygon = Polygon()    //see note below
                 geoPoints.add(geoPoints[0])   //forces the loop to close(connect last point to first point)
                 polygon.fillPaint.color = Color.parseColor("#4EFF0000") //set fill color
+                polygon.outlinePaint.color=Color.parseColor("#4EFF0000")
                 polygon.points = geoPoints
                 map.overlays.add(polygon)
+                val maxPolyId=databaseManager.getMaxPolygonId()
+                for (i in 0..<geoPoints.size) {
+                    databaseManager.insertPolygon(maxPolyId+1,geoPoints[i].latitude,geoPoints[i].longitude)
+                }
+
                 clearMapAndPoints()
             } else {
                 Toast.makeText(
                     applicationContext,
-                    "Jsou potřeba alespoň 3 body!",
+                    "Jsou potřeba alespoň 2 body!",
                     Toast.LENGTH_SHORT
                 ).show()
             }
@@ -278,7 +316,6 @@ class MapsActivity : AppCompatActivity() {
         if (permissionsToRequest.isNotEmpty()) {
 
             showPermissionExplanationDialog(this)
-            Log.d("PermissionDenied", "Uživatel klikl na 'nepovolit'")
             permissionsToRequest.clear()
         } else {
             initializeLocation() // Requested permissions granted, initialize the location
@@ -296,10 +333,7 @@ class MapsActivity : AppCompatActivity() {
                     override fun isCancellationRequested() = false
                 }
             ).addOnSuccessListener { location: Location? ->
-                if (location == null) {
-                    Log.d("PermissionDenied", "Poloha null")
-                } else {
-                    Log.d("PermissionDenied", "Poloha not null")
+                if (location != null) {
                     val lat = location.latitude
                     val lon = location.longitude
 
@@ -323,7 +357,6 @@ class MapsActivity : AppCompatActivity() {
     }
 
     private fun requestPermissionsIfNecessary(permissions: Array<String>) {
-        Log.d("PermissionDenied", "requestPermissionsIfNecessary")
 
         val permissionsToRequest = ArrayList<String>()
         for (permission in permissions) {
@@ -342,6 +375,8 @@ class MapsActivity : AppCompatActivity() {
             initializeLocation() // Permissions already granted, initialize the location
         }
     }
+
+
 
 
 }
