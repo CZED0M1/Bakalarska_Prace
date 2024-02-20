@@ -10,6 +10,7 @@ import android.util.Log
 import android.view.View
 import android.widget.FrameLayout
 import android.widget.ProgressBar
+import android.widget.Toast
 import androidx.activity.result.ActivityResultLauncher
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AlertDialog
@@ -141,58 +142,80 @@ class ImportActivity : AppCompatActivity() {
 
     @OptIn(DelicateCoroutinesApi::class)
     private fun onActivityRes(resultCode: Int, data: Intent?) {
-        if (resultCode == Activity.RESULT_OK) {
-            data?.data?.let { uri ->
-                loadingLiveData.value = true
+        if(data==null) {
+            finish()
+            return
+        }
+        if (!data.data?.toString()?.endsWith(".geojson")!!) {
+            finish()
+            Toast.makeText(applicationContext,"Tento soubor není ve formátu .geojson",Toast.LENGTH_SHORT).show();
+            return
+        }
+            if (resultCode == Activity.RESULT_OK) {
+                data?.data?.let { uri ->
+                    loadingLiveData.value = true
 
-                GlobalScope.launch(Dispatchers.IO) {
-                    inputStream = contentResolver.openInputStream(uri)
-                    reader = BufferedReader(InputStreamReader(inputStream))
-                    inputStream?.use { _ ->
-                        val jsonString = reader.readText()
-                        val jsonObject = JSONObject(jsonString)
-                        val featuresArray = jsonObject.getJSONArray("features")
-                        if (featuresArray.length() > 0) {
-                            for (i in 0 until featuresArray.length()) {
-                                val highestPolygonId = databaseManager.getMaxPolygonId()
-                                val feature = featuresArray.getJSONObject(i)
-                                val geometry = feature.getJSONObject("geometry")
-                                val coordinatesArray = geometry.getJSONArray("coordinates")
-                                for (j in 0 until coordinatesArray.length()) {
-                                    if (coordinatesArray.length() > 0) {
-                                        val firstCoordinate = coordinatesArray.getJSONArray(j)
-                                        if (firstCoordinate.length() == 2) {
-                                            val latitude = firstCoordinate.getDouble(1)
-                                            val longitude = firstCoordinate.getDouble(0)
-                                            insertToDb(highestPolygonId + 1, latitude, longitude)
+                    GlobalScope.launch(Dispatchers.IO) {
+                        inputStream = contentResolver.openInputStream(uri)
+                        reader = BufferedReader(InputStreamReader(inputStream))
+                        inputStream?.use { _ ->
+                            val jsonString = reader.readText()
+                            val jsonObject = JSONObject(jsonString)
+                            val featuresArray = jsonObject.getJSONArray("features")
+                            if (featuresArray.length() > 0) {
+                                for (i in 0 until featuresArray.length()) {
+                                    val highestPolygonId = databaseManager.getMaxPolygonId()
+                                    val feature = featuresArray.getJSONObject(i)
+                                    val geometry = feature.getJSONObject("geometry")
+                                    val coordinatesArray = geometry.getJSONArray("coordinates")
+
+                                    val polygonPoints = mutableListOf<Pair<Double, Double>>()
+
+                                    for (j in 0 until coordinatesArray.length()) {
+                                        if (coordinatesArray.length() > 0) {
+                                            val firstCoordinate = coordinatesArray.getJSONArray(j)
+                                            if (firstCoordinate.length() == 2) {
+                                                val latitude = firstCoordinate.getDouble(1)
+                                                val longitude = firstCoordinate.getDouble(0)
+                                                polygonPoints.add(Pair(latitude, longitude))
+                                            }
                                         }
+                                    }
+
+                                    // Kontrola duplicity polygonu před vložením do databáze
+                                    if (!databaseManager.isPolygonInDatabase(polygonPoints)) {
+                                        for (point in polygonPoints) {
+                                            // Vložení nového bodu polygonu do databáze
+                                            databaseManager.insertPolygon(
+                                                highestPolygonId + 1,
+                                                point.first,
+                                                point.second
+                                            )
+                                        }
+                                        polygonPoints.clear()
+                                    } else {
+                                        Log.d("pepe", "Je tam")
                                     }
                                 }
                             }
                         }
-                    }
-                    reader.close()
-                    inputStream?.close()
+                        reader.close()
+                        inputStream?.close()
 
-                    withContext(Dispatchers.Main) {
-                        loadingLiveData.value = false
-                        finish()
+                        withContext(Dispatchers.Main) {
+                            loadingLiveData.value = false
+                            finish()
+                        }
                     }
                 }
+            } else {
+                loadingLiveData.value = false
+                finish()
             }
-        } else {
-            loadingLiveData.value = false
-            finish()
         }
-    }
 
 
-    private fun insertToDb(highestPolygonId: Int, latitude: Double, longitude: Double) {
-        val insertedId = databaseManager.insertPolygon(highestPolygonId, latitude, longitude)
-        if (insertedId != -1L) {
-            Log.d("FileReader", "Done")
-        } else {
-            Log.d("FileReader", "Chyba")
-        }
-    }
+
+
+
 }

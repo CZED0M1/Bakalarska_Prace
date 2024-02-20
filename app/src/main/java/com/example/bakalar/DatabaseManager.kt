@@ -4,6 +4,7 @@ import android.content.ContentValues
 import android.content.Context
 import android.database.sqlite.SQLiteDatabase
 import android.database.sqlite.SQLiteOpenHelper
+import android.util.Log
 
 
 class DatabaseManager private constructor(context: Context) : SQLiteOpenHelper(context, DATABASE_NAME, null, DATABASE_VERSION) {
@@ -21,33 +22,34 @@ class DatabaseManager private constructor(context: Context) : SQLiteOpenHelper(c
         }
     }
     fun isPolygonInDatabase(polygonPoints: List<Pair<Double, Double>>): Boolean {
-        // Získání maximálního polygonId z databáze
         val maxPolygonId = getMaxPolygonId()
 
-        // Pro každý možný polygonId v databázi
         for (currentPolygonId in 1..maxPolygonId) {
-            val query = "SELECT latitude, longitude FROM map_polygons_database WHERE polygon_id = $currentPolygonId"
-            val cursor = readableDatabase.rawQuery(query, null)
+            val polygonPointsInDatabase = selectAllPolygonPoints(currentPolygonId)
 
-            val polygonPointsInDatabase = mutableListOf<Pair<Double, Double>>()
-
-            // Načtení všech bodů pro aktuální polygonId z databáze
-            while (cursor.moveToNext()) {
-                val latitude = cursor.getDouble(cursor.getColumnIndexOrThrow("latitude"))
-                val longitude = cursor.getDouble(cursor.getColumnIndexOrThrow("longitude"))
-                polygonPointsInDatabase.add(Pair(latitude, longitude))
-            }
-
-            cursor.close()
-
-            // Porovnání bodů z databáze s aktuálním polygonem
-            if (polygonPointsInDatabase == polygonPoints) {
-                return true // Nalezen odpovídající polygon
+            if (polygonPointsInDatabase != null && polygonPointsInDatabase == polygonPoints) {
+                return true
             }
         }
 
-        return false // žádný odpovídající polygon nenalezen
+        return false
     }
+    private fun selectAllPolygonPoints(polygonId: Int): List<Pair<Double, Double>>? {
+        val query = "SELECT latitude, longitude FROM map_polygons_database WHERE polygon_id = $polygonId"
+        val cursor = readableDatabase.rawQuery(query, null)
+
+        val polygonPoints = mutableListOf<Pair<Double, Double>>()
+
+        while (cursor.moveToNext()) {
+            val latitude = cursor.getDouble(cursor.getColumnIndexOrThrow("latitude"))
+            val longitude = cursor.getDouble(cursor.getColumnIndexOrThrow("longitude"))
+            polygonPoints.add(Pair(latitude, longitude))
+        }
+
+        cursor.close()
+        return polygonPoints
+    }
+
     override fun onCreate(db: SQLiteDatabase?) {
         db?.execSQL("CREATE TABLE IF NOT EXISTS map_polygons_database (id INTEGER PRIMARY KEY, polygon_id INTEGER, latitude REAL, longitude REAL)")
     }
