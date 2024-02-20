@@ -18,13 +18,17 @@
         android:theme="@style/Theme.Bakalarka"
         tools:targetApi="31">
         <activity
+            android:name="com.example.bakalar.CityActivity"
+            android:exported="false"
+            android:label="@string/title_activity_city"
+            android:theme="@style/Theme.Bakalarka" />
+        <activity
             android:name="com.example.bakalar.ImportActivity"
             android:exported="false">
             <meta-data
                 android:name="android.app.lib_name"
                 android:value="" />
         </activity>
-
         <activity
             android:name="com.example.bakalar.MapsActivity"
             android:exported="false" />

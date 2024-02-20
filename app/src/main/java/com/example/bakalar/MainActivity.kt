@@ -16,11 +16,12 @@ class MainActivity : AppCompatActivity() {
         openMap()
         openFileChooser()
         clearDatabase()
+        openCity()
     }
 
     private fun clearDatabase() {
-        val openMap = findViewById<Button>(R.id.buttonSmazat)
-        openMap.setOnClickListener {
+        val clearDb = findViewById<Button>(R.id.buttonSmazat)
+        clearDb.setOnClickListener {
             val manager = DatabaseManager.getInstance(this@MainActivity)
             manager.deleteAll()
         }
@@ -37,6 +38,13 @@ class MainActivity : AppCompatActivity() {
         val openFile = findViewById<Button>(R.id.buttonImport)
         openFile.setOnClickListener {
             val intent = Intent(this, ImportActivity::class.java)
+            startActivity(intent)
+        }
+    }
+    private fun openCity() {
+        val openCity = findViewById<Button>(R.id.buttonMesta)
+        openCity.setOnClickListener {
+            val intent = Intent(this, CityActivity::class.java)
             startActivity(intent)
         }
     }

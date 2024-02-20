@@ -31,6 +31,18 @@
         app:layout_constraintTop_toBottomOf="@+id/buttonMapa" />
 
     <Button
+        android:id="@+id/buttonMesta"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="100dp"
+        android:layout_marginTop="50dp"
+        android:layout_marginEnd="100dp"
+        android:text="Vytvořená města"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@+id/buttonImport" />
+
+    <Button
         android:id="@+id/buttonSmazat"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
@@ -40,5 +52,5 @@
         android:text="Smazat"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@+id/buttonImport" />
+        app:layout_constraintTop_toBottomOf="@+id/buttonMesta" />
 </androidx.constraintlayout.widget.ConstraintLayout>

@@ -54,8 +54,9 @@ class MapsActivity : AppCompatActivity() {
     )
     private val permissionRequestCode =1001
     private lateinit var databaseManager:DatabaseManager
-//TODO Databáze
-//TODO remove logs
+    //TODO remove logs
+    //TODO popisky polygonů
+    //TODO edit polygon textu
     override fun onCreate(savedInstanceState: Bundle?) {
     super.onCreate(savedInstanceState)
 

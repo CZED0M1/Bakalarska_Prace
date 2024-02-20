@@ -7,13 +7,22 @@ import android.net.Uri
 import android.os.Bundle
 import android.provider.Settings
 import android.util.Log
+import android.view.View
+import android.widget.FrameLayout
+import android.widget.ProgressBar
 import androidx.activity.result.ActivityResultLauncher
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
+import androidx.lifecycle.MutableLiveData
 import com.example.testosmroid.R
+import kotlinx.coroutines.DelicateCoroutinesApi
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.GlobalScope
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import org.json.JSONObject
 import java.io.BufferedReader
 import java.io.InputStream
@@ -25,6 +34,9 @@ class ImportActivity : AppCompatActivity() {
     private lateinit var databaseManager: DatabaseManager
     private var inputStream: InputStream? = null
     private lateinit var reader: BufferedReader
+    private lateinit var progressBar: ProgressBar
+    private val loadingLiveData = MutableLiveData<Boolean>()
+    private lateinit var loadingOverlay: FrameLayout
 
     private val filePickerLauncher: ActivityResultLauncher<Intent> =
         registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
@@ -34,6 +46,17 @@ class ImportActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_import)
+
+        loadingOverlay = findViewById(R.id.loadingOverlay)
+        progressBar = findViewById(R.id.progressBar)
+        loadingLiveData.observe(this) { isLoading ->
+            if (isLoading) {
+                loadingOverlay.visibility = View.VISIBLE
+            } else {
+                loadingOverlay.visibility = View.GONE
+            }
+        }
+
         checkPermissionAndOpenFileExplorer()
     }
 
@@ -115,40 +138,50 @@ class ImportActivity : AppCompatActivity() {
         startActivity(intent)
     }
 
+
+    @OptIn(DelicateCoroutinesApi::class)
     private fun onActivityRes(resultCode: Int, data: Intent?) {
         if (resultCode == Activity.RESULT_OK) {
             data?.data?.let { uri ->
-                inputStream = contentResolver.openInputStream(uri)
-                reader = BufferedReader(InputStreamReader(inputStream))
-                inputStream?.use { _ ->
-                    val jsonString = reader.readText()
-                    val jsonObject = JSONObject(jsonString)
-                    val featuresArray = jsonObject.getJSONArray("features")
-                    if (featuresArray.length() > 0) {
-                        for (i in 0 until featuresArray.length()) {
-                            val highestPolygonId = databaseManager.getMaxPolygonId()
-                            val feature = featuresArray.getJSONObject(i)
-                            val geometry = feature.getJSONObject("geometry")
-                            val coordinatesArray = geometry.getJSONArray("coordinates")
-                            for (j in 0 until coordinatesArray.length()) {
-                                if (coordinatesArray.length() > 0) {
-                                    val firstCoordinate = coordinatesArray.getJSONArray(j)
-                                    if (firstCoordinate.length() == 2) {
+                loadingLiveData.value = true
 
-                                        val latitude = firstCoordinate.getDouble(1)
-                                        val longitude = firstCoordinate.getDouble(0)
-                                        insertToDb(highestPolygonId + 1, latitude, longitude)
+                GlobalScope.launch(Dispatchers.IO) {
+                    inputStream = contentResolver.openInputStream(uri)
+                    reader = BufferedReader(InputStreamReader(inputStream))
+                    inputStream?.use { _ ->
+                        val jsonString = reader.readText()
+                        val jsonObject = JSONObject(jsonString)
+                        val featuresArray = jsonObject.getJSONArray("features")
+                        if (featuresArray.length() > 0) {
+                            for (i in 0 until featuresArray.length()) {
+                                val highestPolygonId = databaseManager.getMaxPolygonId()
+                                val feature = featuresArray.getJSONObject(i)
+                                val geometry = feature.getJSONObject("geometry")
+                                val coordinatesArray = geometry.getJSONArray("coordinates")
+                                for (j in 0 until coordinatesArray.length()) {
+                                    if (coordinatesArray.length() > 0) {
+                                        val firstCoordinate = coordinatesArray.getJSONArray(j)
+                                        if (firstCoordinate.length() == 2) {
+                                            val latitude = firstCoordinate.getDouble(1)
+                                            val longitude = firstCoordinate.getDouble(0)
+                                            insertToDb(highestPolygonId + 1, latitude, longitude)
+                                        }
                                     }
                                 }
                             }
                         }
                     }
+                    reader.close()
+                    inputStream?.close()
+
+                    withContext(Dispatchers.Main) {
+                        loadingLiveData.value = false
+                        finish()
+                    }
                 }
-                reader.close()
-                inputStream?.close()
-                finish()
             }
         } else {
+            loadingLiveData.value = false
             finish()
         }
     }

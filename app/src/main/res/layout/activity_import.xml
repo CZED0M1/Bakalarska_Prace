@@ -6,4 +6,21 @@
     android:layout_height="match_parent"
     tools:context="com.example.bakalar.ImportActivity">
 
+    <FrameLayout
+        android:id="@+id/loadingOverlay"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:background="@android:color/black"
+        android:alpha="0.5"
+        android:visibility="gone">
+
+        <ProgressBar
+            android:id="@+id/progressBar"
+            android:layout_width="100dp"
+            android:layout_height="100dp"
+            android:layout_gravity="center"
+            style="@android:style/Widget.ProgressBar.Large"
+            android:visibility="visible"/>
+    </FrameLayout>
+
 </androidx.constraintlayout.widget.ConstraintLayout>
