@@ -10,19 +10,22 @@
         android:clickable="true"
         android:focusable="true" />
 
-    <ImageButton
-        android:id="@+id/addParking"
-        android:layout_width="50dp"
-        android:layout_height="50dp"
-        android:layout_alignParentEnd="true"
-        android:layout_alignParentBottom="true"
-        android:layout_marginEnd="16dp"
-        android:layout_marginBottom="16dp"
-        android:contentDescription="AddParkingSpot"
-        android:scaleType="fitCenter"
-        android:src="@drawable/parking"
-        android:background="@null"
-    />
+    <FrameLayout
+        android:id="@+id/loadingOverlay"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:background="@android:color/black"
+        android:alpha="0.5"
+        android:visibility="visible">
+
+        <ProgressBar
+            android:id="@+id/progressBar"
+            android:layout_width="100dp"
+            android:layout_height="100dp"
+            android:layout_gravity="center"
+            style="@android:style/Widget.ProgressBar.Large"
+            android:visibility="visible"/>
+    </FrameLayout>
 
     <View
         android:id="@+id/rectangleView"
@@ -66,4 +69,20 @@
             android:src="@drawable/back" />
 
     </LinearLayout>
+
+    <ImageButton
+        android:id="@+id/addParking"
+        android:layout_width="50dp"
+        android:layout_height="50dp"
+        android:layout_alignParentEnd="true"
+        android:layout_alignParentBottom="true"
+        android:layout_marginEnd="16dp"
+        android:layout_marginBottom="16dp"
+        android:contentDescription="AddParkingSpot"
+        android:scaleType="fitCenter"
+        android:src="@drawable/parking"
+        android:background="@null"
+        android:visibility="gone"
+        />
+
 </RelativeLayout>

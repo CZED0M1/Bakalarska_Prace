@@ -11,8 +11,11 @@ import android.graphics.Color
 import android.location.Location
 import android.os.Bundle
 import android.provider.Settings
+import android.util.Log
 import android.view.View
+import android.widget.FrameLayout
 import android.widget.ImageButton
+import android.widget.ProgressBar
 import android.widget.Toast
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
@@ -54,6 +57,12 @@ class MapsActivity : AppCompatActivity() {
     )
     private val permissionRequestCode =1001
     private lateinit var databaseManager:DatabaseManager
+    private lateinit var loadingOverlay: FrameLayout
+    private lateinit var progressBar: ProgressBar
+
+
+
+
     //TODO remove logs
     //TODO popisky polygonů
     //TODO edit polygon textu
@@ -63,6 +72,8 @@ class MapsActivity : AppCompatActivity() {
     fusedLocationClient = LocationServices.getFusedLocationProviderClient(this)
     requestPermissionsIfNecessary(requiredPermissions)
     getInstance().load(this, PreferenceManager.getDefaultSharedPreferences(this))
+
+
 
     setContentView(R.layout.activity_maps)
 
@@ -93,6 +104,7 @@ class MapsActivity : AppCompatActivity() {
     databaseManager = DatabaseManager.getInstance(this@MapsActivity)
     addPolygons()
 
+
 }
 
 
@@ -120,7 +132,18 @@ class MapsActivity : AppCompatActivity() {
         map.invalidate()
     }
 
+    private fun initViews() {
+        loadingOverlay = findViewById(R.id.loadingOverlay)
+        progressBar = findViewById(R.id.progressBar)
+    }
 
+    private fun showLoadingOverlay() {
+        loadingOverlay.visibility = View.VISIBLE
+    }
+
+    private fun hideLoadingOverlay() {
+        loadingOverlay.visibility = View.GONE
+    }
 
     private fun setMap() {
 
@@ -279,7 +302,7 @@ class MapsActivity : AppCompatActivity() {
     private fun showPermissionExplanationDialog(context: Context) {
         val builder = AlertDialog.Builder(context)
         builder.setTitle("Povolení potřebná pro aplikaci")
-        builder.setMessage("Aplikace potřebuje povolení pro ...")
+        builder.setMessage("Opravdu nechcete povolit zjištění polohy?")
         builder.setPositiveButton("Povolit") { _, _ ->
             // Uživatel klikl na Povolit, přejde do nastavení aplikace
             navigateToAppSettings(context)
@@ -287,6 +310,10 @@ class MapsActivity : AppCompatActivity() {
         builder.setNegativeButton("Zrušit") { dialog, _ ->
             // Uživatel klikl na Zrušit
             dialog.dismiss()
+            initViews()
+            loadingOverlay.visibility=View.GONE
+            parkingButton.visibility=View.VISIBLE
+
         }
         builder.setCancelable(false)
         builder.show()
@@ -324,38 +351,51 @@ class MapsActivity : AppCompatActivity() {
     }
 
     private fun initializeLocation() {
-        if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED) {
-            // Permissions for location are granted, proceed with location actions
+        if (ContextCompat.checkSelfPermission(
+                this,
+                Manifest.permission.ACCESS_FINE_LOCATION
+            ) == PackageManager.PERMISSION_GRANTED
+        ) {
             fusedLocationClient.getCurrentLocation(
                 Priority.PRIORITY_HIGH_ACCURACY,
                 object : CancellationToken() {
-                    override fun onCanceledRequested(p0: OnTokenCanceledListener) = CancellationTokenSource().token
+                    override fun onCanceledRequested(p0: OnTokenCanceledListener) =
+                        CancellationTokenSource().token
 
                     override fun isCancellationRequested() = false
                 }
             ).addOnSuccessListener { location: Location? ->
                 if (location != null) {
-                    val lat = location.latitude
-                    val lon = location.longitude
+                    runOnUiThread {
+                        initViews()
+                        showLoadingOverlay()
 
-                    val actualPosition = GeoPoint(lat, lon)
+                        val actualPosition = GeoPoint(location.latitude, location.longitude)
 
-                    map.controller.setCenter(actualPosition)
+                        map.controller.setCenter(actualPosition)
 
-                    val marker = Marker(map)
-                    marker.position = actualPosition
+                        val marker = Marker(map)
+                        marker.position = actualPosition
 
-                    marker.icon = ContextCompat.getDrawable(
-                        this@MapsActivity,
-                        org.osmdroid.library.R.drawable.person
-                    )
-                    marker.setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_BOTTOM)
-                    map.overlays.add(marker)
-                    map.invalidate()
+                        marker.icon = ContextCompat.getDrawable(
+                            this@MapsActivity,
+                            org.osmdroid.library.R.drawable.person
+                        )
+                        marker.setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_BOTTOM)
+                        map.overlays.add(marker)
+                        map.invalidate()
+
+                        hideLoadingOverlay() // Skryje overlay s ProgressBar
+                        parkingButton.visibility = View.VISIBLE
+                    }
                 }
             }
         }
     }
+
+
+
+
 
     private fun requestPermissionsIfNecessary(permissions: Array<String>) {
 
