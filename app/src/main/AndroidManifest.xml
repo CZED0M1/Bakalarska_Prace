@@ -31,9 +31,6 @@
         </activity>
         <activity
             android:name="com.example.bakalar.MapsActivity"
-            android:exported="false" />
-        <activity
-            android:name="com.example.bakalar.MainActivity"
             android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />

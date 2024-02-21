@@ -44,11 +44,17 @@ class MapsActivity : AppCompatActivity() {
     private lateinit var fusedLocationClient: FusedLocationProviderClient
     private lateinit var map: MapView
     private var isParkClicked: Boolean = false
+    private var isMenuClicked:Boolean = false
     private lateinit var parkingButton: ImageButton
     private lateinit var cancelButton: ImageButton
     private lateinit var addButton: ImageButton
     private lateinit var undoButton: ImageButton
+    private lateinit var menuButton: ImageButton
+    private lateinit var clearDBButton: ImageButton
+    private lateinit var cityButton: ImageButton
+    private lateinit var importButton: ImageButton
     private lateinit var rectangle: View
+    private lateinit var rectangleDown: View
     private var geoPoints = ArrayList<GeoPoint>()
     private var markers = ArrayList<Marker>()
     private val requiredPermissions = arrayOf(
@@ -182,16 +188,46 @@ class MapsActivity : AppCompatActivity() {
         undoButton = findViewById(R.id.undo)
         //TODO <a href="https://www.flaticon.com/free-icons/back" title="back icons">Back icons created by Roundicons - Flaticon</a>
         rectangle = findViewById(R.id.rectangleView)
+        //TODO <a href="https://www.flaticon.com/free-icons/ui" title="ui icons">Ui icons created by khulqi Rosyid - Flaticon</a>
+        menuButton = findViewById(R.id.menu)
+        rectangleDown = findViewById(R.id.rectangleViewDown)
+        clearDBButton = findViewById(R.id.clearDb)
+        cityButton = findViewById(R.id.city)
+        importButton = findViewById(R.id.upload)
+        //TODO <a href="https://www.flaticon.com/free-icons/trash-can" title="trash can icons">Trash can icons created by Ehtisham Abid - Flaticon</a>
+        //TODO <a href="https://www.flaticon.com/free-icons/publish" title="publish icons">Publish icons created by Laisa Islam Ani - Flaticon</a>
+        //TODO <a href="https://www.flaticon.com/free-icons/town" title="town icons">Town icons created by Circlon Tech - Flaticon</a>
 
-        cancelButton.translationY = -600f
-        addButton.translationY = -600f
-        undoButton.translationY = -600f
-        rectangle.translationY = -600f
+        cancelButton.translationY = -220f
+        addButton.translationY = -220f
+        undoButton.translationY = -220f
+        rectangle.translationY = -220f
+        rectangleDown.translationY = 220f
+        cityButton.translationY = 220f
+        clearDBButton.translationY = 220f
+        importButton.translationY = 220f
 
         parkingButton.setOnClickListener {
             startAnimation()
             clearMapAndPoints()
             isParkClicked = !isParkClicked
+        }
+        menuButton.setOnClickListener{
+            startAnimationDown()
+            isMenuClicked=!isMenuClicked
+        }
+        clearDBButton.setOnClickListener{
+           databaseManager.deleteAll()
+            map.overlays.removeAll { it is Polygon }
+            map.invalidate()
+        }
+        cityButton.setOnClickListener{
+            val intent = Intent(this, CityActivity::class.java)
+            startActivity(intent)
+        }
+        importButton.setOnClickListener{
+            val intent = Intent(this, ImportActivity::class.java)
+            startActivity(intent)
         }
 
         undoButton.setOnClickListener {
@@ -268,7 +304,7 @@ class MapsActivity : AppCompatActivity() {
     }
 
     private fun startAnimation() {
-        val translationYValue = if (isParkClicked) -600f else 0f
+        val translationYValue = if (isParkClicked) -220f else 0f
 
         val animator1 = ObjectAnimator.ofFloat(undoButton, "translationY", translationYValue)
         val animator2 = ObjectAnimator.ofFloat(cancelButton, "translationY", translationYValue)
@@ -277,6 +313,23 @@ class MapsActivity : AppCompatActivity() {
 
         val animatorSet = AnimatorSet()
         animatorSet.playTogether(animator1, animator2, animator3, animator4)
+        animatorSet.duration = 1000
+
+        animatorSet.start()
+    }
+    private fun startAnimationDown() {
+        val translationYValue = if (isMenuClicked) 220f else 0f
+        val translationYValueBtn = if (isMenuClicked) 0f else -220f
+
+        val animator1 = ObjectAnimator.ofFloat(menuButton, "translationY", translationYValueBtn)
+        val animator2 = ObjectAnimator.ofFloat(parkingButton, "translationY", translationYValueBtn)
+        val animator3 = ObjectAnimator.ofFloat(rectangleDown, "translationY", translationYValue)
+        val animator4 = ObjectAnimator.ofFloat(clearDBButton, "translationY", translationYValue)
+        val animator5 = ObjectAnimator.ofFloat(cityButton, "translationY", translationYValue)
+        val animator6 = ObjectAnimator.ofFloat(importButton, "translationY", translationYValue)
+
+        val animatorSet = AnimatorSet()
+        animatorSet.playTogether(animator1,animator2,animator3,animator4,animator5,animator6)
         animatorSet.duration = 1000
 
         animatorSet.start()
@@ -313,6 +366,7 @@ class MapsActivity : AppCompatActivity() {
             initViews()
             loadingOverlay.visibility=View.GONE
             parkingButton.visibility=View.VISIBLE
+            menuButton.visibility=View.VISIBLE
 
         }
         builder.setCancelable(false)
@@ -387,6 +441,7 @@ class MapsActivity : AppCompatActivity() {
 
                         hideLoadingOverlay() // Skryje overlay s ProgressBar
                         parkingButton.visibility = View.VISIBLE
+                        menuButton.visibility = View.VISIBLE
                     }
                 }
             }

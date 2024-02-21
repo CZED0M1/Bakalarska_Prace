@@ -70,6 +70,52 @@
 
     </LinearLayout>
 
+    <View
+        android:id="@+id/rectangleViewDown"
+        android:layout_width="match_parent"
+        android:layout_height="80dp"
+        android:layout_centerHorizontal="true"
+        android:background="@android:color/holo_blue_light"
+        android:layout_alignParentBottom="true"/>
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_alignParentBottom="true"
+        android:layout_height="80dp"
+        android:gravity="center"
+        android:orientation="horizontal">
+
+        <ImageButton
+            android:id="@+id/city"
+            android:layout_width="50dp"
+            android:layout_height="50dp"
+            android:layout_marginEnd="8dp"
+            android:background="@null"
+            android:scaleType="fitCenter"
+            android:src="@drawable/skyscraper" />
+
+        <ImageButton
+            android:id="@+id/upload"
+            android:layout_width="50dp"
+            android:layout_height="50dp"
+            android:layout_marginStart="8dp"
+            android:layout_marginEnd="8dp"
+            android:background="@null"
+            android:scaleType="fitCenter"
+            android:src="@drawable/upload" />
+
+        <ImageButton
+            android:id="@+id/clearDb"
+            android:layout_width="50dp"
+            android:layout_height="50dp"
+            android:layout_marginStart="8dp"
+            android:background="@null"
+            android:scaleType="fitCenter"
+            android:src="@drawable/trash" />
+
+
+    </LinearLayout>
+
     <ImageButton
         android:id="@+id/addParking"
         android:layout_width="50dp"
@@ -82,6 +128,22 @@
         android:scaleType="fitCenter"
         android:src="@drawable/parking"
         android:background="@null"
+        android:visibility="gone"
+        />
+    <ImageButton
+        android:id="@+id/menu"
+        android:layout_width="50dp"
+        android:layout_height="50dp"
+        android:layout_alignParentStart="true"
+        android:layout_alignParentBottom="true"
+        android:layout_marginStart="16dp"
+        android:layout_marginTop="16dp"
+        android:layout_marginEnd="16dp"
+        android:layout_marginBottom="16dp"
+        android:background="@null"
+        android:contentDescription="Menu"
+        android:scaleType="fitCenter"
+        android:src="@drawable/menu"
         android:visibility="gone"
         />
 
