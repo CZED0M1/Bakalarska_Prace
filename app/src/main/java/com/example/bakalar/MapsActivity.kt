@@ -72,9 +72,6 @@ class MapsActivity : AppCompatActivity() {
 
 
 
-    //TODO remove logs
-    //TODO popisky polygonů
-    //TODO edit polygon textu
     override fun onCreate(savedInstanceState: Bundle?) {
     super.onCreate(savedInstanceState)
 
@@ -176,9 +173,6 @@ class MapsActivity : AppCompatActivity() {
     private fun addPolygons() {
         loadPoly()
         loadMarks()
-
-
-
         map.invalidate()
     }
 
@@ -252,17 +246,10 @@ class MapsActivity : AppCompatActivity() {
         importButton.translationY = 220f
 
         parkingButton.setOnClickListener {
-            startAnimation()
-            clearMapAndPoints()
-            isParkClicked = !isParkClicked
-            if (isParkClicked) Toast.makeText(map.context,"Vložte 3 a více bodů", Toast.LENGTH_LONG).show()
+            parkingButtonFunction()
         }
         menuButton.setOnClickListener{
-            startAnimationDown()
-            isMenuClicked=!isMenuClicked
-            if (isMenuClicked) menuButton.setImageResource(R.drawable.remove)
-            //TODO change img
-            else menuButton.setImageResource(R.drawable.menu)
+            menuButtonFunction()
         }
         clearDBButton.setOnClickListener{
            databaseManager.deleteAll()
@@ -306,6 +293,24 @@ class MapsActivity : AppCompatActivity() {
         cancelButton.setOnClickListener {
             clearMapAndPoints()
         }
+    }
+
+    private fun parkingButtonFunction() {
+        startAnimation()
+        if (isMenuClicked) menuButtonFunction()
+        clearMapAndPoints()
+        isParkClicked = !isParkClicked
+        if (isParkClicked) Toast.makeText(map.context, "Vložte 3 a více bodů", Toast.LENGTH_LONG)
+            .show()
+    }
+
+    private fun menuButtonFunction() {
+        if (isParkClicked) parkingButtonFunction()
+        startAnimationDown()
+        isMenuClicked = !isMenuClicked
+        if (isMenuClicked) menuButton.setImageResource(R.drawable.remove)
+        //TODO change img
+        else menuButton.setImageResource(R.drawable.menu)
     }
 
     private fun addPolyOnClick() {
@@ -414,20 +419,15 @@ class MapsActivity : AppCompatActivity() {
 
     override fun onResume() {
         super.onResume()
-        //this will refresh the osmdroid configuration on resuming.
-        //if you make changes to the configuration, use
-        //SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(this);
-        //Configuration.getInstance().load(this, PreferenceManager.getDefaultSharedPreferences(this))
-        map.onResume() //needed for compass, my location overlays, v6.0.0 and up
+        map.overlays.removeAll { it is Polygon }
+        map.overlays.removeAll { it is TextMarker }
+        addPolygons()
+        map.onResume()
     }
 
     override fun onPause() {
         super.onPause()
-        //this will refresh the osmdroid configuration on resuming.
-        //if you make changes to the configuration, use
-        //SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(this);
-        //Configuration.getInstance().save(this, prefs);
-        map.onPause()  //needed for compass, my location overlays, v6.0.0 and up
+        map.onPause()
     }
     private fun showPermissionExplanationDialog(context: Context) {
         val builder = AlertDialog.Builder(context)
@@ -516,7 +516,7 @@ class MapsActivity : AppCompatActivity() {
                         map.overlays.add(marker)
                         map.invalidate()
 
-                        hideLoadingOverlay() // Skryje overlay s ProgressBar
+                        hideLoadingOverlay()
                         parkingButton.visibility = View.VISIBLE
                         menuButton.visibility = View.VISIBLE
                     }
