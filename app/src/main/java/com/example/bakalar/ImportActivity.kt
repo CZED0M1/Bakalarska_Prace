@@ -24,6 +24,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import org.json.JSONArray
 import org.json.JSONObject
 import java.io.BufferedReader
 import java.io.IOException
@@ -187,48 +188,10 @@ class ImportActivity : AppCompatActivity() {
                         reader = BufferedReader(InputStreamReader(inputStream))
                         try {
                             inputStream?.use { _ ->
-                                val jsonString = reader.readText()
-                                val jsonObject = JSONObject(jsonString)
-                                val featuresArray = jsonObject.getJSONArray("features")
-                                if (featuresArray.length() > 0) {
-                                    for (i in 0 until featuresArray.length()) {
-                                        val highestPolygonId = databaseManager.getMaxPolygonId()
-                                        val feature = featuresArray.getJSONObject(i)
-                                        val geometry = feature.getJSONObject("geometry")
-                                        val coordinatesArray = geometry.getJSONArray("coordinates")
-
-                                        val polygonPoints = mutableListOf<Pair<Double, Double>>()
-
-                                        for (j in 0 until coordinatesArray.length()) {
-                                            if (coordinatesArray.length() > 0) {
-                                                val firstCoordinate =
-                                                    coordinatesArray.getJSONArray(j)
-                                                if (firstCoordinate.length() == 2) {
-                                                    val latitude = firstCoordinate.getDouble(1)
-                                                    val longitude = firstCoordinate.getDouble(0)
-                                                    polygonPoints.add(Pair(latitude, longitude))
-                                                }
-                                            }
-                                        }
-
-                                        // Kontrola duplicity polygonu před vložením do databáze
-                                        if (!databaseManager.isPolygonInDatabase(polygonPoints)) {
-                                            for (point in polygonPoints) {
-                                                // Vložení nového bodu polygonu do databáze
-                                                databaseManager.insertPolygon(
-                                                    highestPolygonId + 1,
-                                                    point.first,
-                                                    point.second
-                                                )
-                                            }
-                                            polygonPoints.clear()
-                                        } else {
-                                        }
-                                    }
-                                }
+                                readGeoJson()
                             }
                         }catch(err:Exception) {
-                            Log.e("Reading file error",err.toString())
+                            Toast.makeText(applicationContext,"Chyba při vkládání dat!",Toast.LENGTH_SHORT).show()
 
                         }
                         reader.close()
@@ -246,8 +209,58 @@ class ImportActivity : AppCompatActivity() {
             }
         }
 
+    private fun readGeoJson() {
+        val jsonString = reader.readText()
+        val jsonObject = JSONObject(jsonString)
+        val featuresArray = jsonObject.getJSONArray("features")
+        if (featuresArray.length() > 0) {
+            for (i in 0 until featuresArray.length()) {
+                val highestPolygonId = databaseManager.getMaxPolygonId()
+                val feature = featuresArray.getJSONObject(i)
+                val geometry = feature.getJSONObject("geometry")
+                val coordinatesArray = geometry.getJSONArray("coordinates")
 
+                val polygonPoints = mutableListOf<Pair<Double, Double>>()
 
+                loadPolygon(coordinatesArray, polygonPoints)
+                checkPolyDuplicity(polygonPoints, highestPolygonId)
+            }
+        }
+    }
+
+    private fun loadPolygon(
+        coordinatesArray: JSONArray,
+        polygonPoints: MutableList<Pair<Double, Double>>
+    ) {
+        for (j in 0 until coordinatesArray.length()) {
+            if (coordinatesArray.length() > 0) {
+                val firstCoordinate =
+                    coordinatesArray.getJSONArray(j)
+                if (firstCoordinate.length() == 2) {
+                    val latitude = firstCoordinate.getDouble(1)
+                    val longitude = firstCoordinate.getDouble(0)
+                    polygonPoints.add(Pair(latitude, longitude))
+                }
+            }
+        }
+    }
+
+    private fun checkPolyDuplicity(
+        polygonPoints: MutableList<Pair<Double, Double>>,
+        highestPolygonId: Int
+    ) {
+        if (!databaseManager.isPolygonInDatabase(polygonPoints)) {
+            for (point in polygonPoints) {
+                // Vložení nového bodu polygonu do databáze
+                databaseManager.insertPolygon(
+                    highestPolygonId + 1,
+                    point.first,
+                    point.second
+                )
+            }
+            polygonPoints.clear()
+        }
+    }
 
 
 }

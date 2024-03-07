@@ -109,46 +109,56 @@ class MapsActivity : AppCompatActivity() {
 }
 
     private fun loadPoly() {
-    val arr: ArrayList<PolygonGeopoint> = databaseManager.selectAll()
+        val arr: ArrayList<PolygonGeopoint> = databaseManager.selectAll()
 
-    val polygons = arr.map { it.polygonId }.distinct()
-    polygons.forEach { poly ->
-        val samePolygonId = arr.filter { pol ->
-            pol.polygonId == poly
-        }
-        val arrayGeo=arrayListOf<GeoPoint>()
-        samePolygonId.forEach {
-            arrayGeo.add(GeoPoint(it.latitude,it.longitude))
-        }
-        val polygon = Polygon()
-        polygon.fillPaint.color = Color.parseColor("#4EFF0000") //set fill color
-        polygon.outlinePaint.color = Color.parseColor("#4EFF0000")
-        polygon.points = arrayGeo
-        polygon.id=poly.toString()
-        polygon.setOnClickListener { _, _, _ -> // Obsluha kliknutí na polygon
+        val polygons = arr.map { it.polygonId }.distinct()
+        polygons.forEach { poly ->
+            val samePolygonId = arr.filter { pol ->
+                pol.polygonId == poly
+            }
+            val arrayGeo = arrayListOf<GeoPoint>()
+            samePolygonId.forEach {
+                arrayGeo.add(GeoPoint(it.latitude, it.longitude))
+            }
+            val polygon = Polygon()
+            polygon.fillPaint.color = Color.parseColor("#4EFF0000") //set fill color
+            polygon.outlinePaint.color = Color.parseColor("#4EFF0000")
+            polygon.points = arrayGeo
+            polygon.id = poly.toString()
 
-            val input = EditText(map.context)
+            // Listener pro kliknutí na polygon
+            polygon.setOnClickListener { _, _, _ ->
+                val input = EditText(map.context)
 
-            AlertDialog.Builder(map.context)
-                .setTitle("Název Polygonu")
-                .setView(input)
-                .setPositiveButton("OK") { _, _ ->
-                    val enteredText = input.text.toString()
-                    databaseNameManager.insertPolygon(polygon.id.toInt(),enteredText)
-                    map.overlays.removeAll { it is TextMarker }
-                    loadMarks()
-                    map.invalidate()
+                val alertDialog = AlertDialog.Builder(map.context)
+                    .setTitle("Název Polygonu")
+                    .setView(input)
+                    .setPositiveButton("OK") { _, _ ->
+                        val enteredText = input.text.toString()
+                        databaseNameManager.insertPolygon(polygon.id.toInt(), enteredText)
+                        map.overlays.removeAll { it is TextMarker }
+                        loadMarks()
+                        map.invalidate()
+                    }
+                    .setNegativeButton("Zrušit", null)
+                    .create()
+
+                // Přidání onDismissListener
+                alertDialog.setOnDismissListener {
+                    // Tady bude proveden kód po zavření okna
+                    // Můžete sem umístit volání metody nebo cokoli chcete provést po zavření okna
                 }
-                .setNegativeButton("Zrušit", null)
-                .show()
-            true
+
+                alertDialog.show()
+                false // Upraveno na false
+            }
+
+            map.overlays.add(polygon)
+            arrayGeo.clear()
         }
-        map.overlays.add(polygon)
-        arrayGeo.clear()
-
-
     }
-}
+
+
     private fun loadMarks() {
         val arrMarks = databaseNameManager.selectAll()
         arrMarks.forEach { (first, second) ->

@@ -28,7 +28,7 @@ class TextMarker(private val mapView: MapView, text: String, center: GeoPoint) :
             if (zoomLevel != null) {
                 if (zoomLevel >= 15) {
                     drawText(canvas)
-                    super.draw(canvas, mapView, shadow)
+                    super.draw(canvas, mapView, false)
                 }
             }
         }

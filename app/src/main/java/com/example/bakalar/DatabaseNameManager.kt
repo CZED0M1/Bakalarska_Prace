@@ -37,7 +37,6 @@ class DatabaseNameManager private constructor(context: Context) : SQLiteOpenHelp
     }
 
     override fun onUpgrade(db: SQLiteDatabase?, oldVersion: Int, newVersion: Int) {
-        TODO("Not yet implemented")
     }
 
     fun insertPolygon(polyId: Int, name: String): Long {
