@@ -46,7 +46,9 @@
             android:layout_marginEnd="8dp"
             android:background="@null"
             android:scaleType="fitCenter"
-            android:src="@drawable/approve" />
+            android:src="@drawable/approve"
+            android:outlineSpotShadowColor="#80000000"
+            android:elevation="78dp"/>
 
         <ImageButton
             android:id="@+id/cancel"

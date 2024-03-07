@@ -26,6 +26,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.json.JSONObject
 import java.io.BufferedReader
+import java.io.IOException
 import java.io.InputStream
 import java.io.InputStreamReader
 
@@ -138,7 +139,34 @@ class ImportActivity : AppCompatActivity() {
         intent.data = uri
         startActivity(intent)
     }
+    private fun isGeoJsonFile(contentUri: Uri): Boolean {
+        try {
+            val inputStream = contentResolver.openInputStream(contentUri)
+            val buffer = ByteArray(4096)
+            val bytesRead = inputStream?.read(buffer)
 
+            if (bytesRead != null && bytesRead > 0) {
+                val fileContent = String(buffer, 0, bytesRead)
+                inputStream.close()
+                // Kontrola, zda obsah souboru obsahuje typické znaky GeoJSON formátu
+                return fileContent.contains("\"type\": \"FeatureCollection\"") ||
+                        fileContent.contains("\"type\": \"Feature\"") ||
+                        fileContent.contains("\"type\": \"Polygon\"") ||
+                        fileContent.contains("\"type\": \"Point\"")
+
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+        } finally {
+            try {
+                inputStream?.close()
+            } catch (e: IOException) {
+                e.printStackTrace()
+            }
+        }
+
+        return false
+    }
 
     @OptIn(DelicateCoroutinesApi::class)
     private fun onActivityRes(resultCode: Int, data: Intent?) {
@@ -146,58 +174,62 @@ class ImportActivity : AppCompatActivity() {
             finish()
             return
         }
-        if (!data.data?.toString()?.endsWith(".geojson")!!) {
-            finish()
-            Toast.makeText(applicationContext,"Tento soubor není ve formátu .geojson",Toast.LENGTH_SHORT).show();
-            return
-        }
             if (resultCode == Activity.RESULT_OK) {
-                data?.data?.let { uri ->
+                if (!isGeoJsonFile(data.data!!)) {
+                    finish()
+                    Toast.makeText(applicationContext,"Tento soubor není ve formátu .geojson",Toast.LENGTH_SHORT).show()
+                    return
+                }
+                data.data?.let { uri ->
                     loadingLiveData.value = true
-
                     GlobalScope.launch(Dispatchers.IO) {
                         inputStream = contentResolver.openInputStream(uri)
                         reader = BufferedReader(InputStreamReader(inputStream))
-                        inputStream?.use { _ ->
-                            val jsonString = reader.readText()
-                            val jsonObject = JSONObject(jsonString)
-                            val featuresArray = jsonObject.getJSONArray("features")
-                            if (featuresArray.length() > 0) {
-                                for (i in 0 until featuresArray.length()) {
-                                    val highestPolygonId = databaseManager.getMaxPolygonId()
-                                    val feature = featuresArray.getJSONObject(i)
-                                    val geometry = feature.getJSONObject("geometry")
-                                    val coordinatesArray = geometry.getJSONArray("coordinates")
+                        try {
+                            inputStream?.use { _ ->
+                                val jsonString = reader.readText()
+                                val jsonObject = JSONObject(jsonString)
+                                val featuresArray = jsonObject.getJSONArray("features")
+                                if (featuresArray.length() > 0) {
+                                    for (i in 0 until featuresArray.length()) {
+                                        val highestPolygonId = databaseManager.getMaxPolygonId()
+                                        val feature = featuresArray.getJSONObject(i)
+                                        val geometry = feature.getJSONObject("geometry")
+                                        val coordinatesArray = geometry.getJSONArray("coordinates")
 
-                                    val polygonPoints = mutableListOf<Pair<Double, Double>>()
+                                        val polygonPoints = mutableListOf<Pair<Double, Double>>()
 
-                                    for (j in 0 until coordinatesArray.length()) {
-                                        if (coordinatesArray.length() > 0) {
-                                            val firstCoordinate = coordinatesArray.getJSONArray(j)
-                                            if (firstCoordinate.length() == 2) {
-                                                val latitude = firstCoordinate.getDouble(1)
-                                                val longitude = firstCoordinate.getDouble(0)
-                                                polygonPoints.add(Pair(latitude, longitude))
+                                        for (j in 0 until coordinatesArray.length()) {
+                                            if (coordinatesArray.length() > 0) {
+                                                val firstCoordinate =
+                                                    coordinatesArray.getJSONArray(j)
+                                                if (firstCoordinate.length() == 2) {
+                                                    val latitude = firstCoordinate.getDouble(1)
+                                                    val longitude = firstCoordinate.getDouble(0)
+                                                    polygonPoints.add(Pair(latitude, longitude))
+                                                }
                                             }
                                         }
-                                    }
 
-                                    // Kontrola duplicity polygonu před vložením do databáze
-                                    if (!databaseManager.isPolygonInDatabase(polygonPoints)) {
-                                        for (point in polygonPoints) {
-                                            // Vložení nového bodu polygonu do databáze
-                                            databaseManager.insertPolygon(
-                                                highestPolygonId + 1,
-                                                point.first,
-                                                point.second
-                                            )
+                                        // Kontrola duplicity polygonu před vložením do databáze
+                                        if (!databaseManager.isPolygonInDatabase(polygonPoints)) {
+                                            for (point in polygonPoints) {
+                                                // Vložení nového bodu polygonu do databáze
+                                                databaseManager.insertPolygon(
+                                                    highestPolygonId + 1,
+                                                    point.first,
+                                                    point.second
+                                                )
+                                            }
+                                            polygonPoints.clear()
+                                        } else {
                                         }
-                                        polygonPoints.clear()
-                                    } else {
-                                        Log.d("pepe", "Je tam")
                                     }
                                 }
                             }
+                        }catch(err:Exception) {
+                            Log.e("Reading file error",err.toString())
+
                         }
                         reader.close()
                         inputStream?.close()
@@ -207,7 +239,7 @@ class ImportActivity : AppCompatActivity() {
                             finish()
                         }
                     }
-                }
+                    }
             } else {
                 loadingLiveData.value = false
                 finish()

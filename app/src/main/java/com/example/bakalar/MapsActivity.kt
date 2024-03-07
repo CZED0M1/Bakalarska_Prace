@@ -13,12 +13,14 @@ import android.os.Bundle
 import android.provider.Settings
 import android.util.Log
 import android.view.View
+import android.widget.EditText
 import android.widget.FrameLayout
 import android.widget.ImageButton
 import android.widget.ProgressBar
 import android.widget.Toast
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
+import androidx.compose.material3.minimumInteractiveComponentSize
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import androidx.preference.PreferenceManager
@@ -63,6 +65,7 @@ class MapsActivity : AppCompatActivity() {
     )
     private val permissionRequestCode =1001
     private lateinit var databaseManager:DatabaseManager
+    private lateinit var databaseNameManager: DatabaseNameManager
     private lateinit var loadingOverlay: FrameLayout
     private lateinit var progressBar: ProgressBar
 
@@ -82,21 +85,12 @@ class MapsActivity : AppCompatActivity() {
 
 
     setContentView(R.layout.activity_maps)
-
-    //handle permissions first, before map is created. not depicted here
-    //load/initialize the osmdroid configuration, this can be done
-    // This won't work unless you have imported this: org.osmdroid.config.Configuration.*
     //TODO problém <uses-permission android:name="android.permission.INTERNET" /> stahuje mapu
     //TODO tady byl problém, že je zastaralé https://stackoverflow.com/questions/56833657/preferencemanager-getdefaultsharedpreferences-deprecated-in-android-q
-    //setting this before the layout is inflated is a good idea
-    //it 'should' ensure that the map has a writable location for the map cache, even without permissions
-    //if no tiles are displayed, you can try overriding the cache path using Configuration.getInstance().setCachePath
-    //see also StorageUtils
-    //note, the load method also sets the HTTP User Agent to your application's package name, if you abuse osm's
-    //tile servers will get you banned based on this string.
 
     //inflate and create the map
     map = findViewById(R.id.mapView)
+
     map.setTileSource(TileSourceFactory.MAPNIK)
     //TODO problém když nešel přidat obrázek a musel se měnit <LinearLayout na <RelativeLayout (překrytí)
 
@@ -108,33 +102,73 @@ class MapsActivity : AppCompatActivity() {
 
     setMap()
     databaseManager = DatabaseManager.getInstance(this@MapsActivity)
+    databaseNameManager= DatabaseNameManager.getInstance(this@MapsActivity)
     addPolygons()
 
 
 }
 
+    private fun loadPoly() {
+    val arr: ArrayList<PolygonGeopoint> = databaseManager.selectAll()
 
-    private fun addPolygons() {
-        val arr: ArrayList<PolygonGeopoint> = databaseManager.selectAll()
-        val polygons = arr.map { it.polygonId }.distinct()
-        polygons.forEach { poly ->
-            val samePolygonId = arr.filter { pol ->
-                pol.polygonId == poly
-            }
-            val arrayGeo=arrayListOf<GeoPoint>()
-            samePolygonId.forEach {
-                arrayGeo.add(GeoPoint(it.latitude,it.longitude))
-            }
-                val polygon = Polygon()
-                polygon.fillPaint.color = Color.parseColor("#4EFF0000") //set fill color
-                polygon.outlinePaint.color = Color.parseColor("#4EFF0000")
-                polygon.points = arrayGeo
-
-                map.overlays.add(polygon)
-                arrayGeo.clear()
-
-
+    val polygons = arr.map { it.polygonId }.distinct()
+    polygons.forEach { poly ->
+        val samePolygonId = arr.filter { pol ->
+            pol.polygonId == poly
         }
+        val arrayGeo=arrayListOf<GeoPoint>()
+        samePolygonId.forEach {
+            arrayGeo.add(GeoPoint(it.latitude,it.longitude))
+        }
+        val polygon = Polygon()
+        polygon.fillPaint.color = Color.parseColor("#4EFF0000") //set fill color
+        polygon.outlinePaint.color = Color.parseColor("#4EFF0000")
+        polygon.points = arrayGeo
+        polygon.id=poly.toString()
+        polygon.setOnClickListener { _, _, _ -> // Obsluha kliknutí na polygon
+
+            val input = EditText(map.context)
+
+            AlertDialog.Builder(map.context)
+                .setTitle("Název Polygonu")
+                .setView(input)
+                .setPositiveButton("OK") { _, _ ->
+                    val enteredText = input.text.toString()
+                    databaseNameManager.insertPolygon(polygon.id.toInt(),enteredText)
+                    map.overlays.removeAll { it is TextMarker }
+                    loadMarks()
+                    map.invalidate()
+                }
+                .setNegativeButton("Zrušit", null)
+                .show()
+            true
+        }
+        map.overlays.add(polygon)
+        arrayGeo.clear()
+
+
+    }
+}
+    private fun loadMarks() {
+        val arrMarks = databaseNameManager.selectAll()
+        arrMarks.forEach { (first, second) ->
+            val selectedOverlay = map.overlays.find { overlay ->
+                (overlay is Polygon) && (overlay.id?.toInt() == first)}
+            if (selectedOverlay != null) {
+                val selectedPolygon = selectedOverlay as Polygon
+                val m = TextMarker(map, second, selectedPolygon.infoWindowLocation)
+                map.overlays.add(m)
+
+
+            }
+        }
+    }
+    private fun addPolygons() {
+        loadPoly()
+        loadMarks()
+
+
+
         map.invalidate()
     }
 
@@ -211,14 +245,22 @@ class MapsActivity : AppCompatActivity() {
             startAnimation()
             clearMapAndPoints()
             isParkClicked = !isParkClicked
+            if (isParkClicked) Toast.makeText(map.context,"Vložte 3 a více bodů", Toast.LENGTH_LONG).show()
         }
         menuButton.setOnClickListener{
             startAnimationDown()
             isMenuClicked=!isMenuClicked
+            if (isMenuClicked) menuButton.setImageResource(R.drawable.remove)
+            //TODO change img
+            else menuButton.setImageResource(R.drawable.menu)
         }
         clearDBButton.setOnClickListener{
            databaseManager.deleteAll()
+            databaseNameManager.deleteAll()
             map.overlays.removeAll { it is Polygon }
+            map.overlays.removeAll { it is TextMarker }
+
+
             map.invalidate()
         }
         cityButton.setOnClickListener{
@@ -228,6 +270,8 @@ class MapsActivity : AppCompatActivity() {
         importButton.setOnClickListener{
             val intent = Intent(this, ImportActivity::class.java)
             startActivity(intent)
+            addPolygons()
+            map.invalidate()
         }
 
         undoButton.setOnClickListener {
@@ -239,17 +283,7 @@ class MapsActivity : AppCompatActivity() {
         }
         addButton.setOnClickListener {
             if (markers.size > 1) {
-                val polygon = Polygon()    //see note below
-                geoPoints.add(geoPoints[0])   //forces the loop to close(connect last point to first point)
-                polygon.fillPaint.color = Color.parseColor("#4EFF0000") //set fill color
-                polygon.outlinePaint.color=Color.parseColor("#4EFF0000")
-                polygon.points = geoPoints
-                map.overlays.add(polygon)
-                val maxPolyId=databaseManager.getMaxPolygonId()
-                for (i in 0..<geoPoints.size) {
-                    databaseManager.insertPolygon(maxPolyId+1,geoPoints[i].latitude,geoPoints[i].longitude)
-                }
-
+            addPolyOnClick()
                 clearMapAndPoints()
             } else {
                 Toast.makeText(
@@ -261,6 +295,39 @@ class MapsActivity : AppCompatActivity() {
         }
         cancelButton.setOnClickListener {
             clearMapAndPoints()
+        }
+    }
+
+    private fun addPolyOnClick() {
+        val polygon = Polygon()
+        geoPoints.add(geoPoints[0])
+        polygon.fillPaint.color = Color.parseColor("#4EFF0000")
+        polygon.outlinePaint.color = Color.parseColor("#4EFF0000")
+        polygon.points = geoPoints
+        polygon.id= databaseManager.getMaxPolygonId().toString()
+        polygon.setOnClickListener { _, _, _ -> // Obsluha kliknutí na polygon
+
+            val input = EditText(map.context)
+
+            AlertDialog.Builder(map.context)
+                .setTitle("Název Polygonu")
+                .setView(input)
+                .setPositiveButton("OK") { _, _ ->
+                    val enteredText = input.text.toString()
+                    databaseNameManager.insertPolygon(polygon.id.toInt(),enteredText)
+                    map.overlays.removeAll { it is TextMarker }
+                    loadMarks()
+                    map.invalidate()
+                }
+                .setNegativeButton("Zrušit", null)
+                .show()
+            true
+        }
+
+        map.overlays.add(polygon)
+        val maxPolyId=databaseManager.getMaxPolygonId()
+        for (i in 0..<geoPoints.size) {
+            databaseManager.insertPolygon(maxPolyId+1,geoPoints[i].latitude,geoPoints[i].longitude)
         }
     }
 
@@ -313,7 +380,7 @@ class MapsActivity : AppCompatActivity() {
 
         val animatorSet = AnimatorSet()
         animatorSet.playTogether(animator1, animator2, animator3, animator4)
-        animatorSet.duration = 1000
+        animatorSet.duration = 500
 
         animatorSet.start()
     }
@@ -330,7 +397,7 @@ class MapsActivity : AppCompatActivity() {
 
         val animatorSet = AnimatorSet()
         animatorSet.playTogether(animator1,animator2,animator3,animator4,animator5,animator6)
-        animatorSet.duration = 1000
+        animatorSet.duration = 500
 
         animatorSet.start()
     }
