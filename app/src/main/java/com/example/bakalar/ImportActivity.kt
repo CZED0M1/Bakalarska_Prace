@@ -6,7 +6,6 @@ import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Bundle
 import android.provider.Settings
-import android.util.Log
 import android.view.View
 import android.widget.FrameLayout
 import android.widget.ProgressBar
@@ -18,7 +17,6 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.MutableLiveData
-import com.example.testosmroid.R
 import kotlinx.coroutines.DelicateCoroutinesApi
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.GlobalScope
@@ -146,6 +144,7 @@ class ImportActivity : AppCompatActivity() {
             val buffer = ByteArray(4096)
             val bytesRead = inputStream?.read(buffer)
 
+
             if (bytesRead != null && bytesRead > 0) {
                 val fileContent = String(buffer, 0, bytesRead)
                 inputStream.close()
@@ -251,7 +250,6 @@ class ImportActivity : AppCompatActivity() {
     ) {
         if (!databaseManager.isPolygonInDatabase(polygonPoints)) {
             for (point in polygonPoints) {
-                // Vložení nového bodu polygonu do databáze
                 databaseManager.insertPolygon(
                     highestPolygonId + 1,
                     point.first,

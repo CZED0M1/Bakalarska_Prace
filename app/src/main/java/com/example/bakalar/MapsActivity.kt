@@ -8,7 +8,9 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.graphics.Color
+import android.graphics.drawable.GradientDrawable
 import android.location.Location
+import android.net.Uri
 import android.os.Bundle
 import android.provider.Settings
 import android.util.Log
@@ -20,17 +22,17 @@ import android.widget.ProgressBar
 import android.widget.Toast
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
-import androidx.compose.material3.minimumInteractiveComponentSize
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import androidx.preference.PreferenceManager
-import com.example.testosmroid.R
 import com.google.android.gms.location.FusedLocationProviderClient
 import com.google.android.gms.location.LocationServices
 import com.google.android.gms.location.Priority
 import com.google.android.gms.tasks.CancellationToken
 import com.google.android.gms.tasks.CancellationTokenSource
 import com.google.android.gms.tasks.OnTokenCanceledListener
+import org.json.JSONArray
+import org.json.JSONObject
 import org.osmdroid.config.Configuration.getInstance
 import org.osmdroid.events.MapEventsReceiver
 import org.osmdroid.tileprovider.tilesource.TileSourceFactory
@@ -40,6 +42,9 @@ import org.osmdroid.views.overlay.MapEventsOverlay
 import org.osmdroid.views.overlay.Marker
 import org.osmdroid.views.overlay.Polygon
 import org.osmdroid.views.overlay.gestures.RotationGestureOverlay
+import java.io.BufferedReader
+import java.io.File
+import java.io.InputStreamReader
 
 
 class MapsActivity : AppCompatActivity() {
@@ -53,7 +58,6 @@ class MapsActivity : AppCompatActivity() {
     private lateinit var undoButton: ImageButton
     private lateinit var menuButton: ImageButton
     private lateinit var clearDBButton: ImageButton
-    private lateinit var cityButton: ImageButton
     private lateinit var importButton: ImageButton
     private lateinit var rectangle: View
     private lateinit var rectangleDown: View
@@ -71,7 +75,6 @@ class MapsActivity : AppCompatActivity() {
 
 
 
-
     override fun onCreate(savedInstanceState: Bundle?) {
     super.onCreate(savedInstanceState)
 
@@ -85,11 +88,12 @@ class MapsActivity : AppCompatActivity() {
     //TODO problém <uses-permission android:name="android.permission.INTERNET" /> stahuje mapu
     //TODO tady byl problém, že je zastaralé https://stackoverflow.com/questions/56833657/preferencemanager-getdefaultsharedpreferences-deprecated-in-android-q
 
-    //inflate and create the map
     map = findViewById(R.id.mapView)
 
     map.setTileSource(TileSourceFactory.MAPNIK)
-    //TODO problém když nešel přidat obrázek a musel se měnit <LinearLayout na <RelativeLayout (překrytí)
+
+
+        //TODO problém když nešel přidat obrázek a musel se měnit <LinearLayout na <RelativeLayout (překrytí)
 
 
     setButtons()
@@ -98,12 +102,78 @@ class MapsActivity : AppCompatActivity() {
     addTapOverlay()
 
     setMap()
-    databaseManager = DatabaseManager.getInstance(this@MapsActivity)
-    databaseNameManager= DatabaseNameManager.getInstance(this@MapsActivity)
-    addPolygons()
+        createDb()
+        addPolygons()
 
 
 }
+
+    private fun createDb() {
+        val databaseFile =
+            File(this@MapsActivity.getDatabasePath(DatabaseManager.DATABASE_NAME).path)
+        databaseManager = DatabaseManager.getInstance(this@MapsActivity)
+        databaseNameManager = DatabaseNameManager.getInstance(this@MapsActivity)
+        if (!databaseFile.exists()) {
+            val files = arrayOf(
+                File(this@MapsActivity.filesDir, "startData/parkingFirst.geojson"),
+                File(this@MapsActivity.filesDir, "startData/parkingSecond.geojson")
+            )
+            for (file in files) readGeoJson(Uri.fromFile(file))
+        }
+    }
+
+    private fun readGeoJson(uri: Uri) {
+        val inputStream = contentResolver.openInputStream(uri)
+        val reader = BufferedReader(InputStreamReader(inputStream))
+        val jsonString = reader.readText()
+        val jsonObject = JSONObject(jsonString)
+        val featuresArray = jsonObject.getJSONArray("features")
+        if (featuresArray.length() > 0) {
+            for (i in 0 until featuresArray.length()) {
+                val highestPolygonId = databaseManager.getMaxPolygonId()
+                val feature = featuresArray.getJSONObject(i)
+                val geometry = feature.getJSONObject("geometry")
+                val coordinatesArray = geometry.getJSONArray("coordinates")
+
+                val polygonPoints = mutableListOf<Pair<Double, Double>>()
+                loadPolygon(coordinatesArray, polygonPoints)
+                checkPolyDuplicity(polygonPoints, highestPolygonId)
+            }
+        }
+    }
+    private fun loadPolygon(
+        coordinatesArray: JSONArray,
+        polygonPoints: MutableList<Pair<Double, Double>>
+    ) {
+        for (j in 0 until coordinatesArray.length()) {
+            if (coordinatesArray.length() > 0) {
+                val firstCoordinate =
+                    coordinatesArray.getJSONArray(j)
+                if (firstCoordinate.length() == 2) {
+                    val latitude = firstCoordinate.getDouble(1)
+                    val longitude = firstCoordinate.getDouble(0)
+                    polygonPoints.add(Pair(latitude, longitude))
+                }
+            }
+        }
+    }
+    private fun checkPolyDuplicity(
+        polygonPoints: MutableList<Pair<Double, Double>>,
+        highestPolygonId: Int
+    ) {
+
+
+            Log.d("testing","jeede")
+            for (point in polygonPoints) {
+                databaseManager.insertPolygon(
+                    highestPolygonId + 1,
+                    point.first,
+                    point.second
+                )
+            }
+            polygonPoints.clear()
+
+    }
 
     private fun loadPoly() {
         val arr: ArrayList<PolygonGeopoint> = databaseManager.selectAll()
@@ -118,12 +188,11 @@ class MapsActivity : AppCompatActivity() {
                 arrayGeo.add(GeoPoint(it.latitude, it.longitude))
             }
             val polygon = Polygon()
-            polygon.fillPaint.color = Color.parseColor("#4EFF0000") //set fill color
-            polygon.outlinePaint.color = Color.parseColor("#4EFF0000")
+            polygon.fillPaint.color = Color.parseColor("#D73A2B72")
+            polygon.outlinePaint.color = Color.parseColor("#D73A2B72")
             polygon.points = arrayGeo
             polygon.id = poly.toString()
-
-            // Listener pro kliknutí na polygon
+            
             polygon.setOnClickListener { _, _, _ ->
                 val input = EditText(map.context)
 
@@ -140,14 +209,9 @@ class MapsActivity : AppCompatActivity() {
                     .setNegativeButton("Zrušit", null)
                     .create()
 
-                // Přidání onDismissListener
-                alertDialog.setOnDismissListener {
-                    // Tady bude proveden kód po zavření okna
-                    // Můžete sem umístit volání metody nebo cokoli chcete provést po zavření okna
-                }
 
                 alertDialog.show()
-                false // Upraveno na false
+                false
             }
 
             map.overlays.add(polygon)
@@ -218,30 +282,36 @@ class MapsActivity : AppCompatActivity() {
 }
     private fun setButtons() {
         parkingButton = findViewById(R.id.addParking)
-        //TODO <a href="https://www.flaticon.com/free-icons/parking" title="parking icons">Parking icons created by Bartama Graphic - Flaticon</a>
         cancelButton = findViewById(R.id.cancel)
-        //TODO <a href="https://www.flaticon.com/free-icons/delete" title="delete icons">Delete icons created by Pixel perfect - Flaticon</a>
         addButton = findViewById(R.id.approve)
-        //TODO <a href="https://www.flaticon.com/free-icons/yes" title="yes icons">Yes icons created by juicy_fish - Flaticon</a>
         undoButton = findViewById(R.id.undo)
-        //TODO <a href="https://www.flaticon.com/free-icons/back" title="back icons">Back icons created by Roundicons - Flaticon</a>
-        rectangle = findViewById(R.id.rectangleView)
-        //TODO <a href="https://www.flaticon.com/free-icons/ui" title="ui icons">Ui icons created by khulqi Rosyid - Flaticon</a>
-        menuButton = findViewById(R.id.menu)
-        rectangleDown = findViewById(R.id.rectangleViewDown)
-        clearDBButton = findViewById(R.id.clearDb)
-        cityButton = findViewById(R.id.city)
-        importButton = findViewById(R.id.upload)
-        //TODO <a href="https://www.flaticon.com/free-icons/trash-can" title="trash can icons">Trash can icons created by Ehtisham Abid - Flaticon</a>
-        //TODO <a href="https://www.flaticon.com/free-icons/publish" title="publish icons">Publish icons created by Laisa Islam Ani - Flaticon</a>
-        //TODO <a href="https://www.flaticon.com/free-icons/town" title="town icons">Town icons created by Circlon Tech - Flaticon</a>
 
+        rectangle = findViewById(R.id.rectangleView)
+        val gradientDrawable = GradientDrawable()
+        gradientDrawable.shape = GradientDrawable.RECTANGLE
+        gradientDrawable.cornerRadius = 32f
+        gradientDrawable.colors = intArrayOf(0xFF222354.toInt(),0xFF3A2B72.toInt())
+        gradientDrawable.orientation = GradientDrawable.Orientation.LEFT_RIGHT
+        rectangle.background = gradientDrawable
+
+        menuButton = findViewById(R.id.menu)
+
+        rectangleDown = findViewById(R.id.rectangleViewDown)
+        val gradientDrawableDown = GradientDrawable()
+        gradientDrawableDown.shape = GradientDrawable.RECTANGLE
+        gradientDrawableDown.cornerRadius = 32f
+        gradientDrawableDown.colors = intArrayOf(0xFF222354.toInt(),0xFF3A2B72.toInt())
+        gradientDrawableDown.orientation = GradientDrawable.Orientation.LEFT_RIGHT
+        rectangleDown.background = gradientDrawableDown
+
+
+        clearDBButton = findViewById(R.id.clearDb)
+        importButton = findViewById(R.id.upload)
         cancelButton.translationY = -220f
         addButton.translationY = -220f
         undoButton.translationY = -220f
         rectangle.translationY = -220f
         rectangleDown.translationY = 220f
-        cityButton.translationY = 220f
         clearDBButton.translationY = 220f
         importButton.translationY = 220f
 
@@ -260,10 +330,7 @@ class MapsActivity : AppCompatActivity() {
 
             map.invalidate()
         }
-        cityButton.setOnClickListener{
-            val intent = Intent(this, CityActivity::class.java)
-            startActivity(intent)
-        }
+
         importButton.setOnClickListener{
             val intent = Intent(this, ImportActivity::class.java)
             startActivity(intent)
@@ -308,19 +375,19 @@ class MapsActivity : AppCompatActivity() {
         if (isParkClicked) parkingButtonFunction()
         startAnimationDown()
         isMenuClicked = !isMenuClicked
-        if (isMenuClicked) menuButton.setImageResource(R.drawable.remove)
-        //TODO change img
+        if (isMenuClicked) menuButton.setImageResource(R.drawable.close)
         else menuButton.setImageResource(R.drawable.menu)
     }
 
     private fun addPolyOnClick() {
         val polygon = Polygon()
         geoPoints.add(geoPoints[0])
-        polygon.fillPaint.color = Color.parseColor("#4EFF0000")
-        polygon.outlinePaint.color = Color.parseColor("#4EFF0000")
+        polygon.fillPaint.color = Color.parseColor("#D73A2B72")
+        polygon.outlinePaint.color = Color.parseColor("#D73A2B72")
         polygon.points = geoPoints
-        polygon.id= databaseManager.getMaxPolygonId().toString()
-        polygon.setOnClickListener { _, _, _ -> // Obsluha kliknutí na polygon
+        val maxId=databaseManager.getMaxPolygonId()
+        polygon.id= (maxId+1).toString()
+        polygon.setOnClickListener { _, _, _ ->
 
             val input = EditText(map.context)
 
@@ -356,7 +423,7 @@ class MapsActivity : AppCompatActivity() {
                     geoPoints.add(GeoPoint(p.latitude, p.longitude))
                     marker.icon = ContextCompat.getDrawable(
                         this@MapsActivity,
-                        org.osmdroid.library.R.drawable.marker_default
+                        R.drawable.parking_marker
                     )
                     marker.title = "Bod ${markers.size}"
                     marker.setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_BOTTOM)
@@ -401,17 +468,13 @@ class MapsActivity : AppCompatActivity() {
     }
     private fun startAnimationDown() {
         val translationYValue = if (isMenuClicked) 220f else 0f
-        val translationYValueBtn = if (isMenuClicked) 0f else -220f
 
-        val animator1 = ObjectAnimator.ofFloat(menuButton, "translationY", translationYValueBtn)
-        val animator2 = ObjectAnimator.ofFloat(parkingButton, "translationY", translationYValueBtn)
         val animator3 = ObjectAnimator.ofFloat(rectangleDown, "translationY", translationYValue)
         val animator4 = ObjectAnimator.ofFloat(clearDBButton, "translationY", translationYValue)
-        val animator5 = ObjectAnimator.ofFloat(cityButton, "translationY", translationYValue)
-        val animator6 = ObjectAnimator.ofFloat(importButton, "translationY", translationYValue)
+        val animator5 = ObjectAnimator.ofFloat(importButton, "translationY", translationYValue)
 
         val animatorSet = AnimatorSet()
-        animatorSet.playTogether(animator1,animator2,animator3,animator4,animator5,animator6)
+        animatorSet.playTogether(animator3,animator4,animator5)
         animatorSet.duration = 500
 
         animatorSet.start()
@@ -431,14 +494,12 @@ class MapsActivity : AppCompatActivity() {
     }
     private fun showPermissionExplanationDialog(context: Context) {
         val builder = AlertDialog.Builder(context)
-        builder.setTitle("Povolení potřebná pro aplikaci")
+        builder.setTitle("Povolení aktuální polohy")
         builder.setMessage("Opravdu nechcete povolit zjištění polohy?")
         builder.setPositiveButton("Povolit") { _, _ ->
-            // Uživatel klikl na Povolit, přejde do nastavení aplikace
             navigateToAppSettings(context)
         }
         builder.setNegativeButton("Zrušit") { dialog, _ ->
-            // Uživatel klikl na Zrušit
             dialog.dismiss()
             initViews()
             loadingOverlay.visibility=View.GONE
@@ -452,7 +513,7 @@ class MapsActivity : AppCompatActivity() {
 
     private fun navigateToAppSettings(context: Context) {
         val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS)
-        intent.data = android.net.Uri.parse("package:" + context.packageName)
+        intent.data = Uri.parse("package:" + context.packageName)
         context.startActivity(intent)
     }
 
@@ -477,7 +538,7 @@ class MapsActivity : AppCompatActivity() {
             showPermissionExplanationDialog(this)
             permissionsToRequest.clear()
         } else {
-            initializeLocation() // Requested permissions granted, initialize the location
+            initializeLocation()
         }
     }
 
@@ -485,7 +546,7 @@ class MapsActivity : AppCompatActivity() {
         if (ContextCompat.checkSelfPermission(
                 this,
                 Manifest.permission.ACCESS_FINE_LOCATION
-            ) == PackageManager.PERMISSION_GRANTED
+            ) == PackageManager.PERMISSION_GRANTED //kontrola udělení povolení
         ) {
             fusedLocationClient.getCurrentLocation(
                 Priority.PRIORITY_HIGH_ACCURACY,
@@ -497,17 +558,13 @@ class MapsActivity : AppCompatActivity() {
                 }
             ).addOnSuccessListener { location: Location? ->
                 if (location != null) {
-                    runOnUiThread {
+                    runOnUiThread { //načítání
                         initViews()
                         showLoadingOverlay()
-
                         val actualPosition = GeoPoint(location.latitude, location.longitude)
-
                         map.controller.setCenter(actualPosition)
-
                         val marker = Marker(map)
                         marker.position = actualPosition
-
                         marker.icon = ContextCompat.getDrawable(
                             this@MapsActivity,
                             org.osmdroid.library.R.drawable.person
@@ -515,7 +572,6 @@ class MapsActivity : AppCompatActivity() {
                         marker.setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_BOTTOM)
                         map.overlays.add(marker)
                         map.invalidate()
-
                         hideLoadingOverlay()
                         parkingButton.visibility = View.VISIBLE
                         menuButton.visibility = View.VISIBLE
@@ -545,7 +601,7 @@ class MapsActivity : AppCompatActivity() {
                 permissionRequestCode
             )
         } else {
-            initializeLocation() // Permissions already granted, initialize the location
+            initializeLocation()
         }
     }
 

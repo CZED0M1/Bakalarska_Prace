@@ -36,7 +36,7 @@ class TextMarker(private val mapView: MapView, text: String, center: GeoPoint) :
 
     private fun drawText(canvas: Canvas) {
         val paint = Paint()
-        paint.color = Color.BLACK
+        paint.color = Color.WHITE
         paint.textSize = markerTextSize
         paint.textAlign = Paint.Align.CENTER
         paint.typeface = Typeface.DEFAULT_BOLD

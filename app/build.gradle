@@ -4,7 +4,7 @@ plugins {
 }
 
 android {
-    namespace 'com.example.testosmroid'
+    namespace 'com.example.bakalar'
     compileSdk 34
 
 
@@ -12,7 +12,7 @@ android {
 
 
     defaultConfig {
-        applicationId "com.example.testosmroid"
+        applicationId "com.example.bakalar"
         minSdk 27
         targetSdk 34
         versionCode 1

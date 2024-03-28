@@ -8,6 +8,7 @@ import android.database.sqlite.SQLiteOpenHelper
 
 class DatabaseManager private constructor(context: Context) : SQLiteOpenHelper(context, DATABASE_NAME, null, DATABASE_VERSION) {
 
+
     companion object {
         @Volatile
         private var instance: DatabaseManager? = null

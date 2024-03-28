@@ -29,52 +29,57 @@
 
     <View
         android:id="@+id/rectangleView"
-        android:layout_width="match_parent"
-        android:layout_height="80dp"
+        android:layout_width="250dp"
+        android:layout_height="60dp"
+        android:layout_marginTop="10dp"
         android:layout_centerHorizontal="true" />
 
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="80dp"
         android:gravity="center"
+        android:foregroundTintMode="multiply"
         android:orientation="horizontal">
 
         <ImageButton
             android:id="@+id/approve"
-            android:layout_width="50dp"
-            android:layout_height="50dp"
+            android:layout_width="35dp"
+            android:layout_height="35dp"
             android:layout_marginEnd="8dp"
             android:background="@null"
             android:scaleType="fitCenter"
             android:src="@drawable/approve"
+
             android:outlineSpotShadowColor="#80000000"
             android:elevation="78dp"/>
 
+
+
         <ImageButton
-            android:id="@+id/cancel"
-            android:layout_width="50dp"
-            android:layout_height="50dp"
+            android:id="@+id/undo"
+            android:layout_width="35dp"
+            android:layout_height="35dp"
             android:layout_marginStart="8dp"
             android:layout_marginEnd="8dp"
             android:background="@null"
             android:scaleType="fitCenter"
-            android:src="@drawable/remove" />
-
+            android:src="@drawable/back" />
         <ImageButton
-            android:id="@+id/undo"
-            android:layout_width="50dp"
-            android:layout_height="50dp"
+            android:id="@+id/cancel"
+            android:layout_width="35dp"
+            android:layout_height="35dp"
             android:layout_marginStart="8dp"
             android:background="@null"
             android:scaleType="fitCenter"
-            android:src="@drawable/back" />
+            android:src="@drawable/remove" />
 
     </LinearLayout>
 
     <View
         android:id="@+id/rectangleViewDown"
-        android:layout_width="match_parent"
-        android:layout_height="80dp"
+        android:layout_width="200dp"
+        android:layout_height="60dp"
+        android:layout_marginBottom="10dp"
         android:layout_centerHorizontal="true"
         android:background="#333333"
         android:layout_alignParentBottom="true"/>
@@ -86,19 +91,11 @@
         android:gravity="center"
         android:orientation="horizontal">
 
-        <ImageButton
-            android:id="@+id/city"
-            android:layout_width="50dp"
-            android:layout_height="50dp"
-            android:layout_marginEnd="8dp"
-            android:background="@null"
-            android:scaleType="fitCenter"
-            android:src="@drawable/skyscraper" />
 
         <ImageButton
             android:id="@+id/upload"
-            android:layout_width="50dp"
-            android:layout_height="50dp"
+            android:layout_width="35dp"
+            android:layout_height="35dp"
             android:layout_marginStart="8dp"
             android:layout_marginEnd="8dp"
             android:background="@null"
@@ -107,8 +104,8 @@
 
         <ImageButton
             android:id="@+id/clearDb"
-            android:layout_width="50dp"
-            android:layout_height="50dp"
+            android:layout_width="35dp"
+            android:layout_height="35dp"
             android:layout_marginStart="8dp"
             android:background="@null"
             android:scaleType="fitCenter"
